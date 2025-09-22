@@ -123,8 +123,14 @@ pub fn init_queue(dataset: Dataset) -> Result<Queue, BeaErr> {
             }
         }
         Dataset::Mne => {
-            let data = Mne::try_from(&path)?;
-            for params in data.iter() {
+            let mut data = Mne::try_from(&path)?;
+            data.filter_country("all");
+
+            for params in data.iter_mne() {
+                app.with_params(params.clone());
+                queue.push(app.clone());
+            }
+            for params in data.iter_amne() {
                 app.with_params(params.clone());
                 queue.push(app.clone());
             }
