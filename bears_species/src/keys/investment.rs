@@ -1,9 +1,10 @@
 use crate::{
-    BeaErr, DeriveFromStr, ParameterName, ParameterValueTable, ParameterValueTableVariant,
+    BeaErr, DeriveFromStr, MneKind, ParameterName, ParameterValueTable, ParameterValueTableVariant,
     parameter_value::MneDoi,
 };
 use convert_case::Casing;
 use std::str::FromStr;
+use strum::IntoEnumIterator;
 
 /// DI can be `Inward` or `Outward` variants, while AMNE can take all values.
 #[derive(
@@ -19,6 +20,7 @@ use std::str::FromStr;
     serde::Deserialize,
     strum::EnumIter,
     derive_more::FromStr,
+    derive_more::Display,
 )]
 pub enum DirectionKind {
     #[default]
@@ -26,6 +28,55 @@ pub enum DirectionKind {
     Outward,
     Parent,
     State,
+}
+
+impl DirectionKind {
+    /// Returns the BEA description of the parameter variant.
+    #[tracing::instrument(skip_all)]
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::Inward => {
+                "Provides data for U.S. affiliates of foreign multinational companies.  Note that for state-level data on U.S. affiliates, directionOfInvestment should be ‘state’."
+            }
+            Self::Outward => {
+                "Provides data for foreign affiliates of U.S. multinational companies."
+            }
+            Self::Parent => "Provides data on U.S. parent companies.",
+            Self::State => {
+                "Provides data for U.S. affiliates of foreign multinational companies at the state level.  Note that only data on employment and (prior to 2007) gross property, plant, and equipment are available at the state level."
+            }
+        }
+    }
+
+    /// Returns the BEA key of the parameter variant.
+    #[tracing::instrument(skip_all)]
+    pub fn key(&self) -> &'static str {
+        match self {
+            Self::Inward => "inward",
+            Self::Outward => "outward",
+            Self::Parent => "parent",
+            Self::State => "state",
+        }
+    }
+
+    /// Returns a vector containing source datasets in which the variant appears.
+    #[tracing::instrument(skip_all)]
+    pub fn source(&self) -> Vec<MneKind> {
+        match self {
+            Self::Inward => MneKind::iter().collect(),
+            Self::Outward => MneKind::iter().collect(),
+            Self::Parent => vec![MneKind::Amne],
+            Self::State => vec![MneKind::Amne],
+        }
+    }
+
+    /// Returns a vector containing the variants of source `kind`.
+    #[tracing::instrument]
+    pub fn mne(kind: MneKind) -> Vec<Self> {
+        Self::iter()
+            .filter(|v| v.source().contains(&kind))
+            .collect()
+    }
 }
 
 impl TryFrom<&MneDoi> for DirectionKind {
