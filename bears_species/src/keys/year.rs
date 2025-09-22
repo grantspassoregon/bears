@@ -626,26 +626,6 @@ impl Iterator for NipaRangesIterator<'_> {
 }
 
 #[derive(
-    Debug,
-    Default,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    strum::EnumIter,
-)]
-pub enum YearSelection {
-    #[default]
-    All,
-    Yearly,
-}
-
-#[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::Display, derive_new::new,
 )]
 #[display("{input} is not a valid Year at line {line} in file {file}")]
