@@ -1,4 +1,6 @@
-use crate::{BeaErr, Integer, MneDoi, ParameterValueTable, ParameterValueTableVariant};
+use crate::{
+    BeaErr, Integer, MneDoi, ParameterName, ParameterValueTable, ParameterValueTableVariant,
+};
 
 #[derive(
     Debug,
@@ -53,6 +55,14 @@ impl TryFrom<&MneDoi> for OwnershipKind {
 pub struct OwnershipLevel {
     key: Integer,
     kind: OwnershipKind,
+}
+
+impl OwnershipLevel {
+    pub fn params(&self) -> (String, String) {
+        let key = ParameterName::OwnershipLevel.to_string();
+        let value = self.key().to_string();
+        (key, value)
+    }
 }
 
 impl TryFrom<&MneDoi> for OwnershipLevel {
@@ -134,6 +144,14 @@ impl TryFrom<&MneDoi> for AffiliateKind {
 pub struct AffiliateLevel {
     key: Integer,
     kind: AffiliateKind,
+}
+
+impl AffiliateLevel {
+    pub fn params(&self) -> (String, String) {
+        let key = ParameterName::NonbankAffiliatesOnly.to_string();
+        let value = self.key().to_string();
+        (key, value)
+    }
 }
 
 impl TryFrom<&MneDoi> for AffiliateLevel {
