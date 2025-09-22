@@ -5,4 +5,5 @@ pub enum Action {
     Load,
     Download,
     NextError,
+    Queue,
 }
