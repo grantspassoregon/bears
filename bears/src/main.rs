@@ -2,6 +2,7 @@ use bears::Action;
 use bears_ecology::{
     History, Mode, Overwrite, Style, download_with_history, init_queue, initial_load, trace_init,
 };
+use bears_health::write_json;
 use bears_species::{BeaErr, Dataset};
 use clap::Parser;
 // use indicatif::ProgressBar;
@@ -20,6 +21,8 @@ struct Cli {
         default_value_t = false
     )]
     history: bool,
+    #[arg(short = 'o', long, help = "Output file name & path.")]
+    output: Option<std::path::PathBuf>,
     #[arg(
         short = 'x',
         long,
@@ -88,6 +91,18 @@ async fn main() -> Result<(), BeaErr> {
                     req.load()?;
                 }
                 tracing::info!("MNE file successfully loaded.");
+            } else {
+                tracing::warn!("Dataset parameter is missing, add '-d MyDataset' to args.");
+            }
+        }
+        Action::Queue => {
+            if let Some(dataset) = cli.dataset {
+                let queue = init_queue(dataset)?;
+                if let Some(out) = cli.output {
+                    write_json(&queue, out)?;
+                } else {
+                    tracing::warn!("Output path is missing, add '-o MyPath' to args.");
+                }
             } else {
                 tracing::warn!("Dataset parameter is missing, add '-d MyDataset' to args.");
             }
