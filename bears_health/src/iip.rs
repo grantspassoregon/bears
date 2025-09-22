@@ -1,6 +1,5 @@
-use crate::write_json;
 use bears_ecology::{bea_data, initial_load, trace_init};
-use bears_species::{BeaErr, Data, Dataset};
+use bears_species::{BeaErr, Data, Dataset, write_json};
 
 /// Attempts to load all files in the download [`History`], without respect to the load `History`.
 /// Loads IIP files, converts struct fields to BTree hash maps or sets.

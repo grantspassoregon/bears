@@ -22,7 +22,7 @@ pub use error::{
 };
 pub use free::{
     NotFloat, NotInteger, ParseFloat, ParseInteger, UrlParseError, from_csv, json_bool, json_str,
-    map_to_bool, map_to_float, map_to_int, map_to_string, to_csv,
+    map_to_bool, map_to_float, map_to_int, map_to_string, to_csv, write_json,
 };
 pub use key_sets::{
     AmneIter, ApiMetadata, FixedAssetCodes, FixedAssetData, FixedAssets, GdpByIndustry, GdpCodes,

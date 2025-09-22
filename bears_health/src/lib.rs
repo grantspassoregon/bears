@@ -177,7 +177,6 @@ mod indicators;
 mod industry_codes;
 mod investments;
 mod io_codes;
-mod json;
 mod naics;
 mod parameter_values;
 mod parameters;
@@ -199,7 +198,6 @@ pub use indicators::check_indicators;
 pub use industry_codes::{check_gdp_codes, gdp_codes};
 pub use investments::check_investments;
 pub use io_codes::{check_io_codes, check_io_keys, io_codes, io_keys};
-pub use json::write_json;
 pub use naics::{
     check_naics_category, check_naics_industry, check_naics_sectors, check_naics_subcategory,
     check_naics_subsectors,

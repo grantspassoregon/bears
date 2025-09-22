@@ -1,4 +1,6 @@
-use crate::{BeaErr, Csv, FromStrError, IoError, JsonParseError, JsonParseErrorKind, KeyMissing};
+use crate::{
+    BeaErr, Csv, FromStrError, IoError, JsonParseError, JsonParseErrorKind, KeyMissing, SerdeJson,
+};
 
 /// Generic function to serialize data types into a CSV file.  Called by methods to avoid code
 /// duplication.
@@ -65,6 +67,22 @@ pub fn from_csv<T: serde::de::DeserializeOwned + Clone, P: AsRef<std::path::Path
             Err(IoError::new(path, source, line!(), file!().to_string()))
         }
     }
+}
+
+/// Takes any type that implements Serialize and writes the output the a json file at *path*.
+#[tracing::instrument(skip_all)]
+pub fn write_json<T: ?Sized + serde::Serialize, P: AsRef<std::path::Path>>(
+    contents: &T,
+    path: P,
+) -> Result<(), BeaErr> {
+    let path = path.as_ref();
+    let file = std::fs::File::create(path)
+        .map_err(|e| IoError::new(path.to_owned(), e, line!(), file!().to_string()))?;
+    let writer = std::io::BufWriter::new(file);
+
+    serde_json::to_writer_pretty(writer, contents)
+        .map_err(|e| SerdeJson::new(e, line!(), file!().into()))?;
+    Ok(())
 }
 
 /// Converts a [`serde_json::Value`] to a String.

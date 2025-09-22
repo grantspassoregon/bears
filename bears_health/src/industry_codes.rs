@@ -1,9 +1,7 @@
 use bears_ecology::{bea_data, initial_load, trace_init};
-use bears_species::{BeaErr, Data, Dataset, Frequency, GdpCodes, Naics, Set};
+use bears_species::{BeaErr, Data, Dataset, Frequency, GdpCodes, Naics, Set, write_json};
 use std::collections::BTreeSet;
 use strum::IntoEnumIterator;
-
-use crate::write_json;
 
 /// Attempts to load all files in the download [`History`], without respect to the load `History`.
 /// Loads GDPbyIndustry files, converts them to struct field sets.

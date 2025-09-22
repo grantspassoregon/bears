@@ -1,6 +1,7 @@
-use crate::write_json;
 use bears_ecology::{bea_data, initial_load, trace_init};
-use bears_species::{BeaErr, Data, Dataset, InputOutput, InputOutputTable, IoCodes, Naics};
+use bears_species::{
+    BeaErr, Data, Dataset, InputOutput, InputOutputTable, IoCodes, Naics, write_json,
+};
 
 /// Attempts to load all files in the download [`History`], without respect to the load `History`.
 /// Loads InputOutput files, converts them to row and column codes.

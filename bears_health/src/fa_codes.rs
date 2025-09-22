@@ -1,7 +1,6 @@
-use crate::write_json;
 use bears_ecology::{bea_data, initial_load, trace_init};
 use bears_species::{
-    BeaErr, Data, Dataset, FixedAssetCodes, FixedAssetTable, FixedAssets, NipaRanges,
+    BeaErr, Data, Dataset, FixedAssetCodes, FixedAssetTable, FixedAssets, NipaRanges, write_json,
 };
 use strum::IntoEnumIterator;
 
