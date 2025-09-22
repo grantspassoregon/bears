@@ -1,10 +1,11 @@
+use std::str::FromStr;
+
 use crate::{
-    AffiliateLevel, BeaErr, BeaResponse, BoolOptions, Dataset, DirectionOfInvestment, Footnotes,
-    Integer, IntegerKind, IntegerOptions, IoError, MneDoi, OwnershipLevel, ParameterName,
-    ParameterValueTable, ParameterValueTableVariant, SelectionKind, SerdeJson, Set, State,
-    YearKind, YearOptions,
+    AffiliateLevel, BeaErr, BeaResponse, Classification, Dataset, DeriveFromStr, DirectionKind,
+    DirectionOfInvestment, Footnotes, Integer, IntegerOptions, IoError, OwnershipLevel,
+    ParameterName, ParameterValueTable, ParameterValueTableVariant, SerdeJson, Set, State,
+    YearOptions,
 };
-use strum::IntoEnumIterator;
 
 #[derive(
     Debug,
@@ -19,10 +20,10 @@ use strum::IntoEnumIterator;
     derive_getters::Getters,
 )]
 pub struct Mne {
-    classification: Vec<MneDoi>,
+    classification: Vec<Classification>,
     country: Vec<IntegerOptions>,
     direction_of_investment: Vec<DirectionOfInvestment>,
-    get_footnotes: Vec<BoolOptions>,
+    get_footnotes: Vec<Footnotes>,
     industry: Vec<IntegerOptions>,
     investment: Vec<IntegerOptions>,
     nonbank_affiliates_only: Vec<AffiliateLevel>,
@@ -34,20 +35,19 @@ pub struct Mne {
 }
 
 impl Mne {
-    pub fn iter(&self) -> MneIterator<'_> {
-        let series_options = SelectionKind::default();
-        let industry_options = SelectionKind::default();
-        let country_options = SelectionKind::Individual;
-        let year_options = SelectionKind::default();
-        let footnotes = Footnotes::default();
-        MneIterator::new(
-            self,
-            series_options,
-            industry_options,
-            country_options,
-            year_options,
-            footnotes,
-        )
+    #[tracing::instrument(skip_all)]
+    pub fn iter_mne(&self) -> MneIter<'_> {
+        MneIter::new(self)
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn iter_amne(&self) -> AmneIter<'_> {
+        AmneIter::new(self)
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn filter_country(&mut self, value: &str) {
+        self.country.retain(|v| v.key() != value);
     }
 
     // pub fn queue() -> Result<Queue, BeaErr> {
@@ -109,7 +109,16 @@ impl TryFrom<&std::path::PathBuf> for Mne {
                         for table in pv.iter() {
                             match table {
                                 ParameterValueTable::MneDoi(tab) => {
-                                    classification.push(tab.clone());
+                                    let value =
+                                        Classification::from_str(tab.key()).map_err(|e| {
+                                            DeriveFromStr::new(
+                                                tab.key().to_owned(),
+                                                e,
+                                                line!(),
+                                                file!().to_owned(),
+                                            )
+                                        })?;
+                                    classification.push(value);
                                 }
                                 other => {
                                     let error = ParameterValueTableVariant::new(
@@ -134,7 +143,7 @@ impl TryFrom<&std::path::PathBuf> for Mne {
                     }
                     ParameterName::GetFootnotes => {
                         for table in pv.iter() {
-                            get_footnotes.push(BoolOptions::try_from(table)?);
+                            get_footnotes.push(Footnotes::try_from(table)?);
                         }
                     }
                     ParameterName::Industry => {
@@ -241,417 +250,340 @@ pub enum MneKind {
     Di,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, derive_setters::Setters)]
-#[setters(prefix = "with_", borrow_self, into)]
-pub struct MneIterator<'a> {
-    #[setters(skip)]
-    data: &'a Mne,
-    series_options: SelectionKind,
-    industry_options: SelectionKind,
-    country_options: SelectionKind,
-    year_options: SelectionKind,
-    footnotes: Footnotes,
-    // Kinds of Mne dataset to request (DI or AMNE)
-    mne_kinds: Vec<MneKind>,
-    #[setters(skip)]
-    mne_index: usize,
-    #[setters(skip)]
-    mne_end: bool,
-    // index into data.ownership_level
-    #[setters(skip)]
-    ownership_index: usize,
-    #[setters(skip)]
-    ownership_end: bool,
-    // index into data.nonbank_affiliates_only
-    #[setters(skip)]
-    nonbank_index: usize,
-    #[setters(skip)]
-    nonbank_end: bool,
-    // index into data.direction_of_investment
-    #[setters(skip)]
-    doi_index: usize,
-    #[setters(skip)]
-    doi_end: bool,
-    // index into data.classification
-    #[setters(skip)]
-    class_index: usize,
-    #[setters(skip)]
-    class_end: bool,
-    // index into data.series_id
-    #[setters(skip)]
-    series_index: usize,
-    #[setters(skip)]
-    series_end: bool,
-    // index into data.industry
-    #[setters(skip)]
-    industries: Vec<&'a String>,
-    #[setters(skip)]
-    industry_index: usize,
-    #[setters(skip)]
-    industry_end: bool,
-    // index into data.country
-    #[setters(skip)]
-    countries: Vec<&'a String>,
-    #[setters(skip)]
-    country_index: usize,
-    #[setters(skip)]
-    country_end: bool,
-    // index into year value subset of data.year
-    #[setters(skip)]
-    years: Vec<&'a String>,
-    #[setters(skip)]
-    year_index: usize,
-    #[setters(skip)]
-    year_end: bool,
+/// Returns an iterator over the `Mne` struct for Direct Investment data.
+/// Used to create API calls with SeriesID, State and Years set to "ALL".
+/// Includes footnotes.
+#[derive(Debug, Clone)]
+pub struct MneIter<'a> {
+    // Set of classification values to request
+    classifications: std::slice::Iter<'a, Classification>,
+    // Set of country values to request
+    countries: std::slice::Iter<'a, IntegerOptions>,
+    // Set of variants associated with requested MneKind
+    investment_direction: Vec<DirectionKind>,
+    // cached value of current country
+    current_country: Option<&'a IntegerOptions>,
+    // index of position in *investment_direction*
+    current_direction: usize,
+    // cache clones of *classifications* to consume on loops
+    class_cache: std::slice::Iter<'a, Classification>,
 }
 
-impl<'a> MneIterator<'a> {
-    pub fn new(
-        data: &'a Mne,
-        series_options: SelectionKind,
-        industry_options: SelectionKind,
-        country_options: SelectionKind,
-        year_options: SelectionKind,
-        footnotes: Footnotes,
-    ) -> Self {
-        // DI needs to come before AMNE
-        // so the query stored in app does not retain ownership level or nonbank affiliates
-        let mne_kinds = MneKind::iter().rev().collect();
-        let mne_index = 0;
-        let mne_end = false;
-        let ownership_index = 0;
-        let ownership_end = false;
-        let nonbank_index = 0;
-        let nonbank_end = false;
-        let doi_index = 0;
-        let doi_end = false;
-        let class_index = 0;
-        let class_end = false;
-        let mut years = Vec::new();
-        for opt in data.year() {
-            match opt.kind() {
-                YearKind::Year(_) => {
-                    years.push(opt.key());
-                }
-                _ => {
-                    tracing::trace!("Not an individual value.");
-                }
-            }
-        }
-        let series_index = 0;
-        let series_end = false;
-        let mut industries = Vec::new();
-        for opt in data.industry() {
-            match opt.kind() {
-                IntegerKind::All => {}
-                IntegerKind::Integer(_) => industries.push(opt.key()),
-            }
-        }
-        let industry_index = 0;
-        let industry_end = false;
-        let mut countries = Vec::new();
-        for opt in data.country() {
-            match opt.kind() {
-                IntegerKind::All => {}
-                IntegerKind::Integer(_) => countries.push(opt.key()),
-            }
-        }
-        let country_index = 0;
-        let country_end = false;
-        let year_index = 0;
-        let year_end = false;
+impl<'a> MneIter<'a> {
+    /// Creates an iterator over investment directions in the provided `Mne` struct.
+    #[tracing::instrument(skip_all)]
+    pub fn new(data: &'a Mne) -> Self {
+        let classifications = data.classification().iter();
+        let mut countries = data.country().iter();
+        let investment_direction = DirectionKind::mne(MneKind::Di);
+        let class_cache = classifications.clone();
+        let current_country = countries.next();
+        let current_direction = 0;
         Self {
-            data,
-            series_options,
-            industry_options,
-            country_options,
-            year_options,
-            footnotes,
-            mne_kinds,
-            mne_index,
-            mne_end,
-            ownership_index,
-            ownership_end,
-            nonbank_index,
-            nonbank_end,
-            doi_index,
-            doi_end,
-            class_index,
-            class_end,
-            series_index,
-            series_end,
-            industries,
-            industry_index,
-            industry_end,
+            classifications,
             countries,
-            country_index,
-            country_end,
-            years,
-            year_index,
-            year_end,
+            investment_direction,
+            current_country,
+            current_direction,
+            class_cache,
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn reset_class(&mut self) -> Option<&Classification> {
+        self.class_cache = self.classifications.clone();
+        self.class_cache.next()
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn reset_direction(&mut self) -> Option<&Classification> {
+        self.current_direction = 0;
+        self.reset_class()
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn advance_class(&mut self) -> Option<&Classification> {
+        match self.class_cache.next() {
+            Some(class) => Some(class),
+            None => self.advance_direction(),
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn advance_direction(&mut self) -> Option<&Classification> {
+        if self.current_direction < self.investment_direction.len() - 1 {
+            self.current_direction += 1;
+            self.reset_class()
+        } else {
+            self.advance_country()
+        }
+    }
+
+    pub fn advance_country(&mut self) -> Option<&Classification> {
+        match self.countries.next() {
+            Some(country) => {
+                self.current_country = Some(country);
+                self.reset_direction()
+            }
+            None => None,
         }
     }
 }
 
-impl Iterator for MneIterator<'_> {
+impl Iterator for MneIter<'_> {
     type Item = std::collections::BTreeMap<String, String>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // advance state
-        // primary driver year
-        // secondary driver series
-        // tertiary driver industry
-        // next driver country
-        // next driver classification
-        // next driver direction of investment
-        // next driver nonbank affiliates
-        // ultimate driver ownership level
-        if self.year_end {
-            // no more year values in self.years
-            // reset index and flag (necessary or doesn't hurt)
-            self.year_index = 0;
-            self.year_end = false;
-            // advance series
-            match self.series_options {
-                SelectionKind::All => self.series_end = true,
-                SelectionKind::Individual => {
-                    if self.series_index < self.data.series_id.len() - 1 {
-                        tracing::trace!("Advancing series index.");
-                        self.series_index += 1;
-                    } else {
-                        tracing::trace!("Ending series index.");
-                        self.series_end = true;
-                    }
-                }
-                // TODO: unimplemented
-                SelectionKind::Multiple => {}
-            }
-        }
-
-        // set to true when out of years for a given option combo
-        if self.series_end {
-            // no more series in self.data.series_id
-            self.series_index = 0;
-            self.series_end = false;
-            // advance industry
-            match self.industry_options {
-                SelectionKind::All => self.industry_end = true,
-                SelectionKind::Individual => {
-                    if self.industry_index < self.industries.len() - 1 {
-                        tracing::trace!("Advancing industy index.");
-                        self.industry_index += 1;
-                    } else {
-                        tracing::trace!("Ending industy index.");
-                        self.industry_end = true;
-                    }
-                }
-                // TODO: unimplemented
-                SelectionKind::Multiple => {}
-            }
-        }
-
-        // set to true when out of industries for a given option combo
-        if self.industry_end {
-            // no more industries in self.data.industry
-            self.industry_index = 0;
-            self.industry_end = false;
-            // advance country
-            match self.country_options {
-                SelectionKind::All => self.country_end = true,
-                SelectionKind::Individual => {
-                    if self.country_index < self.countries.len() - 1 {
-                        tracing::trace!("Advancing country index.");
-                        self.country_index += 1;
-                    } else {
-                        tracing::trace!("Ending country index.");
-                        self.country_end = true;
-                    }
-                }
-                // TODO: unimplemented
-                SelectionKind::Multiple => {}
-            }
-        }
-
-        // set to true when out of countries for a given option combo
-        if self.country_end {
-            // no more countries in self.data.country
-            self.country_index = 0;
-            self.country_end = false;
-            // advance classification
-            if self.class_index < self.data.classification.len() - 1 {
-                tracing::trace!("Advancing class index.");
-                self.class_index += 1;
-            } else {
-                tracing::trace!("Ending class index.");
-                self.class_end = true;
-            }
-        }
-
-        if self.class_end {
-            self.class_index = 0;
-            self.class_end = false;
-            let doi_cap = match self.mne_kinds[self.mne_index] {
-                MneKind::Amne => self.data.direction_of_investment.len() - 1,
-                // DI only has inward and outward directions, indexed at 0 and 1
-                MneKind::Di => 1,
-            };
-            if self.doi_index < doi_cap {
-                tracing::trace!("Advancing doi index.");
-                self.doi_index += 1;
-            } else {
-                tracing::trace!("Ending doi index.");
-                self.doi_end = true;
-            }
-        }
-
-        if self.doi_end {
-            self.doi_index = 0;
-            self.doi_end = false;
-            match self.mne_kinds[self.mne_index] {
-                MneKind::Amne => {
-                    if self.nonbank_index < self.data.nonbank_affiliates_only.len() - 1 {
-                        tracing::trace!("Advancing nonbank index.");
-                        self.nonbank_index += 1;
-                    } else {
-                        tracing::trace!("Ending nonbank index.");
-                        self.nonbank_end = true;
-                    }
-                }
-                MneKind::Di => {
-                    if self.mne_index < self.mne_kinds.len() - 1 {
-                        tracing::trace!("Advancing mne index.");
-                        self.mne_index += 1;
-                    } else {
-                        tracing::trace!("Ending mne index.");
-                        self.mne_end = true;
-                    }
-                }
-            }
-        }
-
-        if self.nonbank_end {
-            self.nonbank_index = 0;
-            self.nonbank_end = false;
-            if self.ownership_index < self.data.ownership_level.len() - 1 {
-                tracing::trace!("Advancing ownership index.");
-                self.ownership_index += 1;
-            } else {
-                tracing::trace!("Ending ownership index.");
-                self.ownership_end = true;
-            }
-        }
-
-        if self.ownership_end {
-            self.ownership_index = 0;
-            self.ownership_end = false;
-            if self.mne_index < self.mne_kinds.len() - 1 {
-                tracing::trace!("Advancing mne index.");
-                self.mne_index += 1;
-            } else {
-                tracing::trace!("Ending ownership index.");
-                self.mne_end = true;
-            }
-        }
-
-        if self.mne_end {
-            return None;
-        }
-
         // empty parameters dictionary
         let mut params = std::collections::BTreeMap::new();
-        // set footnotes
-        let (key, value) = self.footnotes.params();
+
+        // advance state
+        // set classification
+        let classification = self.advance_class()?;
+        let (key, value) = classification.params();
         params.insert(key, value);
 
         // set direction of investment
         let key = ParameterName::DirectionOfInvestment.to_string();
-        let value = self.data.direction_of_investment[self.doi_index]
+        let value = self.investment_direction[self.current_direction]
             .key()
-            .to_string();
-        let doi = value.clone();
+            .to_owned();
         params.insert(key, value);
 
-        if self.mne_kinds[self.mne_index] == MneKind::Amne {
-            // set ownership level
-            let key = ParameterName::OwnershipLevel.to_string();
-            let mut value = self.data.ownership_level[self.ownership_index]
-                .key()
-                .to_string();
-            // if doi is parent, then ownership level must be 1
-            if &doi == "parent" && &value == "0" {
-                self.ownership_index = 1;
-                value = "1".to_string();
-            }
+        // set country
+        if let Some(country) = self.current_country {
+            let key = ParameterName::Country.to_string();
+            let value = country.key().to_owned();
             params.insert(key, value);
-
-            // set nonbank affiliates only
-            let key = ParameterName::NonbankAffiliatesOnly.to_string();
-            let value = self.data.nonbank_affiliates_only[self.nonbank_index]
-                .key()
-                .to_string();
-            params.insert(key, value);
-        } else {
-            tracing::trace!("Ownership and nonbank not set.");
         }
 
-        // set classification
-        let key = ParameterName::Classification.to_string();
-        let value = self.data.classification[self.class_index].key().to_string();
+        // set footnotes
+        let key = ParameterName::GetFootnotes.to_string();
+        let value = Footnotes::Yes.key().to_owned();
         params.insert(key, value);
 
-        // set series id
+        // set seried id
         let key = ParameterName::SeriesID.to_string();
-        let value = match self.series_options {
-            SelectionKind::All => "all".to_string(),
-            SelectionKind::Individual => self.data.series_id[self.series_index].value().to_string(),
-            SelectionKind::Multiple => "all".to_string(),
-        };
-        params.insert(key, value);
+        params.insert(key, "ALL".to_string());
 
         // set industry
         let key = ParameterName::Industry.to_string();
-        let value = match self.industry_options {
-            SelectionKind::All => "all",
-            SelectionKind::Individual => self.industries[self.industry_index],
-            SelectionKind::Multiple => "all",
-        };
-        params.insert(key, value.to_string());
+        params.insert(key, "ALL".to_string());
+
+        // set state
+        let key = ParameterName::State.to_string();
+        params.insert(key, "ALL".to_string());
+
+        // set years to all
+        let key = ParameterName::Year.to_string();
+        let value = "ALL".to_owned();
+        params.insert(key, value);
+
+        Some(params)
+    }
+}
+
+/// Returns an iterator over the `Mne` struct for the AMNE dataset.
+/// Used to create API calls with SeriesID, State and Years set to "ALL".
+/// Includes footnotes.
+#[derive(Debug, Clone)]
+pub struct AmneIter<'a> {
+    // Set of classification values to request
+    classifications: std::slice::Iter<'a, Classification>,
+    // Set of country values to request
+    countries: std::slice::Iter<'a, IntegerOptions>,
+    // Set of variants associated with requested MneKind
+    investment_direction: Vec<DirectionKind>,
+    // Set of ownership levels to request
+    ownership_levels: std::slice::Iter<'a, OwnershipLevel>,
+    // Set of nonbank affiliates only values to request
+    nonbank_affiliates: std::slice::Iter<'a, AffiliateLevel>,
+    // cached value of current country
+    current_country: Option<&'a IntegerOptions>,
+    // index of position in *investment_direction*
+    current_direction: usize,
+    // cache clones of *nonbank_affiliates* to consume on loops
+    affiliate_cache: std::slice::Iter<'a, AffiliateLevel>,
+    // cache clones of *classifications* to consume on loops
+    class_cache: std::slice::Iter<'a, Classification>,
+    // cache clones of *ownership_levels* to consume on loops
+    owner_cache: std::slice::Iter<'a, OwnershipLevel>,
+    // records current owner during state transitions
+    current_owner: Option<&'a OwnershipLevel>,
+    // records current affiliate level during state transitions
+    current_affiliate: Option<&'a AffiliateLevel>,
+}
+
+impl<'a> AmneIter<'a> {
+    /// Creates an iterator over investment directions in the provided `Mne` struct.
+    #[tracing::instrument(skip_all)]
+    pub fn new(data: &'a Mne) -> Self {
+        let classifications = data.classification().iter();
+        let mut countries = data.country().iter();
+        let investment_direction = DirectionKind::mne(MneKind::Amne);
+        let ownership_levels = data.ownership_level().iter();
+        let nonbank_affiliates = data.nonbank_affiliates_only().iter();
+        let mut affiliate_cache = nonbank_affiliates.clone();
+        let class_cache = classifications.clone();
+        let mut owner_cache = ownership_levels.clone();
+        let current_country = countries.next();
+        let current_direction = 0;
+        let current_owner = owner_cache.next();
+        let current_affiliate = affiliate_cache.next();
+        Self {
+            classifications,
+            countries,
+            investment_direction,
+            ownership_levels,
+            nonbank_affiliates,
+            current_country,
+            current_direction,
+            affiliate_cache,
+            class_cache,
+            owner_cache,
+            current_owner,
+            current_affiliate,
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn reset_class(&mut self) -> Option<&Classification> {
+        self.class_cache = self.classifications.clone();
+        self.class_cache.next()
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn reset_direction(&mut self) -> Option<&Classification> {
+        self.current_direction = 0;
+        self.reset_class()
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn reset_owner(&mut self) -> Option<&Classification> {
+        self.owner_cache = self.ownership_levels.clone();
+        self.current_owner = self.owner_cache.next();
+        self.reset_direction()
+    }
+    #[tracing::instrument(skip_all)]
+    pub fn reset_affiliate(&mut self) -> Option<&Classification> {
+        self.affiliate_cache = self.nonbank_affiliates.clone();
+        self.current_affiliate = self.affiliate_cache.next();
+        self.reset_owner()
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn advance_class(&mut self) -> Option<&Classification> {
+        match self.class_cache.next() {
+            Some(class) => Some(class),
+            None => self.advance_direction(),
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn advance_direction(&mut self) -> Option<&Classification> {
+        if self.current_direction < self.investment_direction.len() - 1 {
+            self.current_direction += 1;
+            self.reset_class()
+        } else {
+            self.advance_ownership()
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn advance_ownership(&mut self) -> Option<&Classification> {
+        match self.owner_cache.next() {
+            Some(owner) => {
+                self.current_owner = Some(owner);
+                self.reset_direction()
+            }
+            None => self.advance_affiliates(),
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn advance_affiliates(&mut self) -> Option<&Classification> {
+        match self.nonbank_affiliates.next() {
+            Some(affilitate) => {
+                self.current_affiliate = Some(affilitate);
+                self.reset_owner()
+            }
+            None => self.advance_country(),
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn advance_country(&mut self) -> Option<&Classification> {
+        match self.countries.next() {
+            Some(country) => {
+                self.current_country = Some(country);
+                self.reset_affiliate()
+            }
+            None => None,
+        }
+    }
+}
+
+impl Iterator for AmneIter<'_> {
+    type Item = std::collections::BTreeMap<String, String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // empty parameters dictionary
+        let mut params = std::collections::BTreeMap::new();
+
+        // advance state
+        // set classification
+        let classification = self.advance_class()?;
+        let (key, value) = classification.params();
+        params.insert(key, value);
+
+        // set direction of investment
+        let key = ParameterName::DirectionOfInvestment.to_string();
+        let value = self.investment_direction[self.current_direction]
+            .key()
+            .to_owned();
+        params.insert(key, value);
+
+        // set ownership level
+        if let Some(owner) = self.current_owner {
+            let (key, value) = owner.params();
+            params.insert(key, value);
+        }
+
+        // set nonbank affiliates
+        if let Some(affiliate) = self.current_affiliate {
+            let (key, value) = affiliate.params();
+            params.insert(key, value);
+        }
 
         // set country
-        let key = ParameterName::Country.to_string();
-        let value = match self.country_options {
-            SelectionKind::All => "all",
-            SelectionKind::Individual => self.countries[self.country_index],
-            SelectionKind::Multiple => "all",
-        };
-        params.insert(key, value.to_string());
+        if let Some(country) = self.current_country {
+            let key = ParameterName::Country.to_string();
+            let value = country.key().to_owned();
+            params.insert(key, value);
+        }
 
-        // set year
+        // set footnotes
+        let key = ParameterName::GetFootnotes.to_string();
+        let value = Footnotes::Yes.key().to_owned();
+        params.insert(key, value);
+
+        // set seried id
+        let key = ParameterName::SeriesID.to_string();
+        params.insert(key, "ALL".to_string());
+
+        // set industry
+        let key = ParameterName::Industry.to_string();
+        params.insert(key, "ALL".to_string());
+
+        // set state
+        let key = ParameterName::State.to_string();
+        params.insert(key, "ALL".to_string());
+
+        // set years to all
         let key = ParameterName::Year.to_string();
-        let value = match self.year_options {
-            SelectionKind::All => {
-                self.year_end = true;
-                "all"
-            }
-            SelectionKind::Individual => {
-                // Pull current year from self.years by self.year_index
-                let year = self.years[self.year_index];
-                // Check if more years are available
-                if self.year_index == self.years.len() - 1 {
-                    // No more years, move to next table
-                    self.year_end = true;
-                } else {
-                    // Increment year index
-                    self.year_index += 1;
-                }
-                year
-            }
-            SelectionKind::Multiple => {
-                self.year_end = true;
-                "all"
-            }
-        };
-        params.insert(key, value.to_string());
+        let value = "ALL".to_owned();
+        params.insert(key, value);
+
         Some(params)
     }
 }
