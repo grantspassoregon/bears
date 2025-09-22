@@ -1,8 +1,8 @@
 use crate::{
     BeaErr, BeaResponse, Data, Dataset, DatasetMissing, Frequencies, Frequency, Integer, IoError,
     JsonParseError, KeyMissing, Naics, NotArray, NotObject, ParameterFields, ParameterName,
-    ParameterValueTable, SelectionKind, SerdeJson, Set, VariantMissing, Year, data::result_to_data,
-    map_to_float, map_to_int, map_to_string, parse_year, roman_numeral_quarter,
+    ParameterValueTable, SerdeJson, Set, VariantMissing, Year, data::result_to_data, map_to_float,
+    map_to_int, map_to_string, parse_year, roman_numeral_quarter,
 };
 
 #[derive(
@@ -37,11 +37,6 @@ impl GdpByIndustry {
     #[tracing::instrument]
     pub fn frequencies() -> Frequencies {
         vec![Frequency::Annual, Frequency::Quarterly].into()
-    }
-
-    #[tracing::instrument]
-    pub fn iter(&self) -> GdpByIndustryIterator<'_> {
-        GdpByIndustryIterator::new(self)
     }
 
     #[tracing::instrument]
@@ -244,199 +239,6 @@ impl Iterator for GdpTables<'_> {
         let value = "ALL".to_owned();
         params.insert(key, value);
 
-        Some(params)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, derive_setters::Setters)]
-#[setters(prefix = "with_", borrow_self, into)]
-pub struct GdpByIndustryIterator<'a> {
-    #[setters(skip)]
-    data: &'a GdpByIndustry,
-    frequency_options: SelectionKind,
-    industry_options: SelectionKind,
-    year_selection: SelectionKind,
-    // index into data.table_name
-    #[setters(skip)]
-    table_index: usize,
-    // index into data.frequency
-    #[setters(skip)]
-    frequency_index: usize,
-    #[setters(skip)]
-    frequency_end: bool,
-    #[setters(skip)]
-    industry_index: usize,
-    #[setters(skip)]
-    industry_end: bool,
-    #[setters(skip)]
-    years: Option<Vec<String>>,
-    #[setters(skip)]
-    year_index: usize,
-    #[setters(skip)]
-    year_end: bool,
-}
-
-impl<'a> GdpByIndustryIterator<'a> {
-    #[tracing::instrument]
-    pub fn new(data: &'a GdpByIndustry) -> Self {
-        let frequency_options = SelectionKind::default();
-        let industry_options = SelectionKind::default();
-        let year_selection = SelectionKind::default();
-        let table_index = 0;
-        let frequency_index = 0;
-        let industry_index = 0;
-        let industry_end = false;
-        Self {
-            data,
-            frequency_options,
-            industry_options,
-            year_selection,
-            table_index,
-            frequency_index,
-            frequency_end: false,
-            industry_index,
-            industry_end,
-            years: None,
-            year_index: 0,
-            year_end: false,
-        }
-    }
-}
-
-impl Iterator for GdpByIndustryIterator<'_> {
-    type Item = std::collections::BTreeMap<String, String>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // advance state
-        if self.year_end {
-            // no more year values in self.years
-            // only needs to reset for individual, but doesn't hurt to just reset
-            self.year_index = 0;
-            self.year_end = false;
-            match self.frequency_options {
-                SelectionKind::All => self.frequency_end = true,
-                SelectionKind::Individual => {
-                    // more frequencies remain
-                    if self.frequency_index < self.data.frequency.len() - 1 {
-                        // increment the frequency index
-                        self.frequency_index += 1;
-                    } else {
-                        // no more frequencies, move to next table
-                        self.frequency_end = true;
-                    }
-                }
-                // TODO: unimplemented
-                SelectionKind::Multiple => {}
-            }
-        }
-
-        // no more years for this table, move to next table
-        if self.frequency_end {
-            self.frequency_index = 0;
-            self.frequency_end = false;
-            let table_id = &self.data.table_id[self.table_index];
-            if let Some(industries) = self.data.industry.get(table_id) {
-                if self.industry_index < industries.len() - 1 {
-                    // increment the index
-                    self.industry_index += 1;
-                } else {
-                    self.industry_end = true;
-                }
-            } else {
-                tracing::error!("Industries should not be None.");
-                self.industry_end = true;
-            }
-        }
-
-        // no more years for this table, move to next table
-        if self.industry_end {
-            self.industry_index = 0;
-            self.industry_end = false;
-            if self.table_index < self.data.table_id.len() - 1 {
-                // increment the table index
-                self.table_index += 1;
-            } else {
-                // no more tables, end iterator
-                return None;
-            }
-        }
-
-        // empty parameters dictionary
-        let mut params = std::collections::BTreeMap::new();
-        // set table id
-        let key = ParameterName::TableID.to_string();
-        let table_id = self.data.table_id[self.table_index].clone();
-        params.insert(key, table_id.to_string());
-
-        // set frequency
-        match self.frequency_options {
-            // only a single key value pair needed
-            SelectionKind::All => {
-                let (key, value) = self.data.frequency.params();
-                params.insert(key, value);
-            }
-            // step through the available frequencies
-            SelectionKind::Individual => {
-                let (key, value) = self.data.frequency[self.frequency_index].params();
-                params.insert(key, value);
-            }
-            // TODO: unimplemented
-            SelectionKind::Multiple => {}
-        }
-
-        // set industry
-        let key = ParameterName::Industry.to_string();
-        match self.industry_options {
-            SelectionKind::All => {
-                let value = "ALL".to_string();
-                params.insert(key, value);
-                // move to next set
-                self.industry_end = true;
-            }
-            SelectionKind::Individual => {
-                if let Some(industries) = self.data.industry.get(&table_id) {
-                    params.insert(key, industries[self.industry_index].key().to_owned());
-                } else {
-                    tracing::warn!("Industry should not be None.");
-                    // move to next set
-                    self.industry_end = true;
-                }
-            }
-            // TODO: unimplemented
-            SelectionKind::Multiple => {}
-        }
-
-        // set year values
-        let key = ParameterName::Year.to_string();
-        match self.year_selection {
-            // single key value pair is sufficient
-            SelectionKind::All => {
-                let value = "ALL".to_string();
-                params.insert(key, value);
-                // move to next year range or table
-                self.year_end = true;
-            }
-            // pull next year from years
-            SelectionKind::Individual => {
-                if let Some(years) = self.data.year.get(&table_id) {
-                    params.insert(key, years[self.year_index].to_string());
-                    // advance state
-                    if self.year_index < years.len() - 1 {
-                        // increment year index
-                        self.year_index += 1;
-                    } else {
-                        // move to next year range or table
-                        self.year_end = true;
-                    }
-                } else {
-                    tracing::warn!("Years should not be None.");
-                    // move to next year range or table
-                    self.year_end = true;
-                }
-            }
-            // TODO: unimplemented
-            SelectionKind::Multiple => {}
-        }
         Some(params)
     }
 }
