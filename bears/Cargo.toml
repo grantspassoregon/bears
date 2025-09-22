@@ -21,7 +21,6 @@ name = "bears"
 [dependencies]
 clap = { workspace = true }
 bears_ecology.workspace = true
-bears_health.workspace = true
 bears_species.workspace = true
 derive-getters = { workspace = true }
 derive-new = { workspace = true }

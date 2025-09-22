@@ -129,7 +129,6 @@ name = "bears"
 version = "0.1.13"
 dependencies = [
  "bears_ecology",
- "bears_health",
  "bears_species",
  "clap",
  "derive-getters",
