@@ -12,14 +12,15 @@ mod regional;
 
 pub use fixed_assets::{FixedAssetCodes, FixedAssetData, FixedAssets};
 pub use gdp_by_industry::{
-    GdpByIndustry, GdpCodes, GdpData, GdpDatum, UnderlyingGdpByIndustry, UnderlyingGdpData,
+    GdpByIndustry, GdpCodes, GdpData, GdpDatum, GdpTables, UnderlyingGdpByIndustry,
+    UnderlyingGdpData,
 };
-pub use iip::{Iip, IipData};
-pub use input_output::{InputOutput, InputOutputData, IoCodes};
+pub use iip::{Iip, IipData, IipInvestments};
+pub use input_output::{InputOutput, InputOutputData, InputOutputIterator, IoCodes};
 pub use intl_serv_sta::IntlServSta;
 pub use intl_serv_trade::IntlServTrade;
-pub use ita::{Ita, ItaData, ItaDatum};
+pub use ita::{Ita, ItaData, ItaDatum, ItaIterator};
 pub use metadata::ApiMetadata;
-pub use mne::Mne;
+pub use mne::{AmneIter, Mne, MneIter, MneKind};
 pub use nipa::{NiUnderlyingDetail, Nipa, NipaData, NipaIterator};
 pub use regional::Regional;
