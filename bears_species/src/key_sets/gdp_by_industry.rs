@@ -1,8 +1,8 @@
 use crate::{
     BeaErr, BeaResponse, Data, Dataset, DatasetMissing, Frequencies, Frequency, Integer, IoError,
-    JsonParseError, KeyMissing, Naics, NotArray, NotObject, ParameterFields, ParameterName,
-    ParameterValueTable, SerdeJson, Set, VariantMissing, Year, data::result_to_data, map_to_float,
-    map_to_int, map_to_string, parse_year, roman_numeral_quarter,
+    JsonParseError, KeyMissing, Naics, NotArray, NotObject, ParameterName, ParameterValueTable,
+    SerdeJson, Set, VariantMissing, Year, data::result_to_data, map_to_float, map_to_int,
+    map_to_string, parse_year, roman_numeral_quarter,
 };
 
 #[derive(
@@ -34,26 +34,38 @@ impl GdpByIndustry {
     /// Returns the set of all [`Naics`] variants contained in the *industry* field.
     /// Takes the union of all variants under various table ids.
     #[tracing::instrument(skip_all)]
-    pub fn industries(&self) -> std::collections::BTreeSet<&Naics> {
+    pub fn industries(&self) -> std::collections::BTreeSet<Naics> {
         let mut set = std::collections::BTreeSet::new();
         for items in self.industry.values() {
-            let mut add = items.iter().collect::<std::collections::BTreeSet<&Naics>>();
+            let mut add = items
+                .iter()
+                .cloned()
+                .collect::<std::collections::BTreeSet<Naics>>();
             set.append(&mut add);
         }
         set
+    }
+
+    /// Returns the set of all i32 values contained in the *table_id* field.
+    #[tracing::instrument(skip_all)]
+    pub fn table_ids(&self) -> std::collections::BTreeSet<i32> {
+        self.table_id()
+            .iter()
+            .map(|v| *v.value())
+            .collect::<std::collections::BTreeSet<i32>>()
     }
 
     /// Returns the set of all [`Year`] values contained in the *year* field.
     /// Takes the union of all variants under various table ids and converts them to
     /// [`jiff::civil::Date`].
     #[tracing::instrument(skip_all)]
-    pub fn years(&self) -> std::collections::BTreeSet<&jiff::civil::Date> {
+    pub fn years(&self) -> std::collections::BTreeSet<jiff::civil::Date> {
         let mut set = std::collections::BTreeSet::new();
         for items in self.year.values() {
             let mut add = items
                 .iter()
-                .map(|v| v.date())
-                .collect::<std::collections::BTreeSet<&jiff::civil::Date>>();
+                .map(|v| *v.date())
+                .collect::<std::collections::BTreeSet<jiff::civil::Date>>();
             set.append(&mut add);
         }
         set
@@ -509,12 +521,57 @@ impl TryFrom<&serde_json::Value> for GdpData {
 )]
 pub struct UnderlyingGdpByIndustry {
     frequency: Frequencies,
-    industry: std::collections::HashMap<Integer, Vec<ParameterFields>>,
+    industry: std::collections::BTreeMap<Integer, Vec<Naics>>,
     table_id: Vec<Integer>,
-    year: std::collections::HashMap<Integer, Vec<Year>>,
+    year: std::collections::BTreeMap<Integer, Vec<Year>>,
 }
 
 impl UnderlyingGdpByIndustry {
+    #[tracing::instrument]
+    pub fn frequencies() -> Frequencies {
+        vec![Frequency::Annual].into()
+    }
+
+    /// Returns the set of all [`Naics`] variants contained in the *industry* field.
+    /// Takes the union of all variants under various table ids.
+    #[tracing::instrument(skip_all)]
+    pub fn industries(&self) -> std::collections::BTreeSet<Naics> {
+        let mut set = std::collections::BTreeSet::new();
+        for items in self.industry.values() {
+            let mut add = items
+                .iter()
+                .cloned()
+                .collect::<std::collections::BTreeSet<Naics>>();
+            set.append(&mut add);
+        }
+        set
+    }
+
+    /// Returns the set of all i32 values contained in the *table_id* field.
+    #[tracing::instrument(skip_all)]
+    pub fn table_ids(&self) -> std::collections::BTreeSet<i32> {
+        self.table_id()
+            .iter()
+            .map(|v| *v.value())
+            .collect::<std::collections::BTreeSet<i32>>()
+    }
+
+    /// Returns the set of all [`Year`] values contained in the *year* field.
+    /// Takes the union of all variants under various table ids and converts them to
+    /// [`jiff::civil::Date`].
+    #[tracing::instrument(skip_all)]
+    pub fn years(&self) -> std::collections::BTreeSet<jiff::civil::Date> {
+        let mut set = std::collections::BTreeSet::new();
+        for items in self.year.values() {
+            let mut add = items
+                .iter()
+                .map(|v| *v.date())
+                .collect::<std::collections::BTreeSet<jiff::civil::Date>>();
+            set.append(&mut add);
+        }
+        set
+    }
+
     #[tracing::instrument]
     pub fn iter(&self) -> UnderlyingGDPbyIndustryIterator<'_> {
         UnderlyingGDPbyIndustryIterator::new(self)
@@ -535,14 +592,9 @@ impl UnderlyingGdpByIndustry {
     }
 
     #[tracing::instrument]
-    pub fn frequencies() -> Frequencies {
-        vec![Frequency::Annual].into()
-    }
-
-    #[tracing::instrument]
     pub fn read_industry<P: AsRef<std::path::Path> + std::fmt::Debug>(
         path: P,
-    ) -> Result<std::collections::HashMap<Integer, Vec<ParameterFields>>, BeaErr> {
+    ) -> Result<std::collections::BTreeMap<Integer, Vec<Naics>>, BeaErr> {
         let path = path.as_ref();
         let table_id = Self::read_table_id(path)?;
         let dataset = Dataset::UnderlyingGDPbyIndustry;
@@ -550,7 +602,7 @@ impl UnderlyingGdpByIndustry {
         let name = ParameterName::Industry;
         // year values vary by table id
         let path = path.join(format!("parameter_values/{dataset}_{name}"));
-        let mut industries = std::collections::HashMap::new();
+        let mut industries = std::collections::BTreeMap::new();
         for id in table_id {
             // open the file at the expected storage location, error if missing
             let path = path.join(format!(
@@ -572,7 +624,17 @@ impl UnderlyingGdpByIndustry {
                 for table in pv.iter() {
                     match table {
                         ParameterValueTable::ParameterFields(pf) => {
-                            industry.push(pf.clone());
+                            if let Some(naics) = Naics::from_code(pf.key()) {
+                                industry.push(naics);
+                            } else {
+                                let error = VariantMissing::new(
+                                    "Naics".to_string(),
+                                    pf.key().to_owned(),
+                                    line!(),
+                                    file!().to_owned(),
+                                );
+                                return Err(error.into());
+                            }
                         }
                         _ => {
                             return Err(Set::ParameterFieldsMissing.into());
@@ -629,7 +691,7 @@ impl UnderlyingGdpByIndustry {
     #[tracing::instrument]
     pub fn read_year<P: AsRef<std::path::Path> + std::fmt::Debug>(
         path: P,
-    ) -> Result<std::collections::HashMap<Integer, Vec<Year>>, BeaErr> {
+    ) -> Result<std::collections::BTreeMap<Integer, Vec<Year>>, BeaErr> {
         let path = path.as_ref();
         let table_id = Self::read_table_id(path)?;
         let dataset = Dataset::UnderlyingGDPbyIndustry;
@@ -637,7 +699,7 @@ impl UnderlyingGdpByIndustry {
         let name = ParameterName::Year;
         // year values vary by table id
         let path = path.join(format!("parameter_values/{dataset}_{name}"));
-        let mut years = std::collections::HashMap::new();
+        let mut years = std::collections::BTreeMap::new();
         for id in table_id {
             // open the file at the expected storage location, error if missing
             let path = path.join(format!(
@@ -949,25 +1011,4 @@ impl TryFrom<&serde_json::Value> for UnderlyingGdpData {
             }
         }
     }
-}
-
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    derive_getters::Getters,
-    derive_new::new,
-)]
-pub struct GdpCodes {
-    frequencies: std::collections::BTreeSet<Frequency>,
-    industries: std::collections::BTreeSet<Naics>,
-    table_ids: std::collections::BTreeSet<i64>,
-    years: std::collections::BTreeSet<jiff::civil::Date>,
 }
