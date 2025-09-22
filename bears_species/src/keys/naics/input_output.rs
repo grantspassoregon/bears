@@ -76,6 +76,8 @@ pub enum NaicsInputOutput {
     GrossDomesticProduct,
     /// Gross operating surplus
     GrossOperatingSurplus,
+    /// Hospitals and nursing and residential care facilities (A,Q)
+    HospitalsNursingResidentialCareFacilities,
     /// Housing
     Housing,
     /// Import duties
@@ -302,6 +304,9 @@ impl NaicsInputOutput {
             }
             Self::GrossDomesticProduct => "Gross domestic product",
             Self::GrossOperatingSurplus => "Gross operating surplus",
+            Self::HospitalsNursingResidentialCareFacilities => {
+                "Hospitals and nursing and residential care facilities (A,Q)"
+            }
             Self::Housing => "Housing",
             Self::ImportDuties => "Import duties",
             Self::Imports => "Imports",
@@ -487,6 +492,7 @@ impl NaicsInputOutput {
             Self::GovernmentConsumptionExpendituresGrossInvestment => "F100",
             Self::GrossDomesticProduct => "GDP",
             Self::GrossOperatingSurplus => "V003",
+            Self::HospitalsNursingResidentialCareFacilities => "622HO",
             Self::Housing => "HS",
             Self::ImportDuties => "MDTY",
             Self::Imports => "MCIF",
@@ -622,6 +628,7 @@ impl NaicsInputOutput {
             "541X" => Self::SpecializedDesignServicesOtherProfessionalScientificTechnicalServices,
             "561X" => Self::OtherAdministrativeSupportServices,
             "6215OH" => Self::OtherAmbulatoryHealthCareServices,
+            "622HO" => Self::HospitalsNursingResidentialCareFacilities,
             "711AS" => Self::PerformingArtsSpectatorSportsMuseumsRelatedActivies,
             "F010" => Self::PersonalConsumptionExpenditures,
             "F020" => Self::PrivateFixedInvestment,
