@@ -173,7 +173,6 @@ mod datasets;
 mod histories;
 mod iip;
 mod indicators;
-mod industry_codes;
 mod investments;
 mod naics;
 mod parameter_values;
@@ -193,7 +192,6 @@ pub use datasets::{check_datasets, datasets_from_file, datasets_to_json};
 pub use histories::download_summary;
 pub use iip::iip_codes;
 pub use indicators::check_indicators;
-pub use industry_codes::{check_gdp_codes, gdp_codes};
 pub use investments::check_investments;
 pub use naics::{
     check_naics_category, check_naics_industry, check_naics_sectors, check_naics_subcategory,
@@ -206,8 +204,8 @@ pub use parameter_values::{
 pub use parameters::{parameter_names, parameters_from_file, parameters_to_json};
 pub use queues::inspect_queues;
 pub use value_sets::{
-    check_fa_codes, check_fa_keys, check_io_codes, check_io_keys, fa_codes, fa_keys, get_fa_codes,
-    io_codes, io_keys,
+    GdpCodes, GdpKeys, check_fa_codes, check_fa_keys, check_gdp_codes, check_io_codes,
+    check_io_keys, fa_codes, fa_keys, gdp_codes, gdp_keys, get_fa_codes, io_codes, io_keys,
 };
 pub use values::{
     api_error, requests_exceeded, values_filtered, values_filtered_subset, values_gdp_filtered,

@@ -1,3 +1,5 @@
+use bears_species::Dataset;
+
 #[test]
 fn parameter_names() -> anyhow::Result<()> {
     bears_health::parameter_names()?;
@@ -132,6 +134,13 @@ async fn check_io_keys() -> anyhow::Result<()> {
 #[test]
 fn get_io_keys() -> anyhow::Result<()> {
     bears_health::io_keys()?;
+    Ok(())
+}
+
+#[test]
+fn get_gdp_keys() -> anyhow::Result<()> {
+    bears_health::gdp_keys(Dataset::GDPbyIndustry)?;
+    bears_health::gdp_keys(Dataset::UnderlyingGDPbyIndustry)?;
     Ok(())
 }
 
