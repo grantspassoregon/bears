@@ -180,6 +180,8 @@ dependencies = [
  "anyhow",
  "bears_ecology",
  "bears_species",
+ "derive-getters",
+ "derive-new",
  "dotenvy",
  "jiff",
  "serde",
