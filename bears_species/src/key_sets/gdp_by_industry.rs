@@ -237,7 +237,7 @@ impl Iterator for GdpTables<'_> {
 
         // set frequency
         let key = ParameterName::Frequency.to_string();
-        params.insert(key, "ALL".to_string());
+        params.insert(key, "A,Q".to_string());
 
         // set years to all
         let key = ParameterName::Year.to_string();
