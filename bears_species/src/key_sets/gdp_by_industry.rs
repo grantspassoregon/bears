@@ -18,13 +18,52 @@ use crate::{
 pub struct GdpByIndustry {
     frequency: Frequencies,
     // BTreeMap of table ids to industry names
-    industry: std::collections::BTreeMap<Integer, Vec<ParameterFields>>,
+    industry: std::collections::BTreeMap<Integer, Vec<Naics>>,
     table_id: Vec<Integer>,
     // BTreeMap of table ids to years
     year: std::collections::BTreeMap<Integer, Vec<Year>>,
 }
 
 impl GdpByIndustry {
+    /// Hardcoded vector of variants, skipping the need to read from file.
+    #[tracing::instrument]
+    pub fn frequencies() -> Frequencies {
+        vec![Frequency::Annual, Frequency::Quarterly].into()
+    }
+
+    /// Returns the set of all [`Naics`] variants contained in the *industry* field.
+    /// Takes the union of all variants under various table ids.
+    #[tracing::instrument(skip_all)]
+    pub fn industries(&self) -> std::collections::BTreeSet<&Naics> {
+        let mut set = std::collections::BTreeSet::new();
+        for items in self.industry.values() {
+            let mut add = items.iter().collect::<std::collections::BTreeSet<&Naics>>();
+            set.append(&mut add);
+        }
+        set
+    }
+
+    /// Returns the set of all [`Year`] values contained in the *year* field.
+    /// Takes the union of all variants under various table ids and converts them to
+    /// [`jiff::civil::Date`].
+    #[tracing::instrument(skip_all)]
+    pub fn years(&self) -> std::collections::BTreeSet<&jiff::civil::Date> {
+        let mut set = std::collections::BTreeSet::new();
+        for items in self.year.values() {
+            let mut add = items
+                .iter()
+                .map(|v| v.date())
+                .collect::<std::collections::BTreeSet<&jiff::civil::Date>>();
+            set.append(&mut add);
+        }
+        set
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn iter_tables(&self) -> GdpTables<'_> {
+        GdpTables::new(self)
+    }
+
     #[tracing::instrument]
     pub fn from_file<P: AsRef<std::path::Path> + std::fmt::Debug>(path: P) -> Result<Self, BeaErr> {
         let frequency = Self::frequencies();
@@ -35,36 +74,9 @@ impl GdpByIndustry {
     }
 
     #[tracing::instrument]
-    pub fn frequencies() -> Frequencies {
-        vec![Frequency::Annual, Frequency::Quarterly].into()
-    }
-
-    #[tracing::instrument]
-    pub fn iter_tables(&self) -> GdpTables<'_> {
-        GdpTables::new(self)
-    }
-
-    // pub fn queue() -> Result<Queue, BeaErr> {
-    //     let req = Request::Data;
-    //     let mut app = req.init()?;
-    //     let dataset = Dataset::GDPbyIndustry;
-    //     app.with_dataset(dataset);
-    //     dotenvy::dotenv().ok();
-    //     let path = bea_data()?;
-    //     let data = GdpByIndustry::try_from(&path)?;
-    //     let mut queue = Vec::new();
-    //     for params in data.iter() {
-    //         tracing::trace!("{params:#?}");
-    //         app.with_params(params.clone());
-    //         queue.push(app.clone());
-    //     }
-    //     Ok(Queue::new(queue))
-    // }
-
-    #[tracing::instrument]
     pub fn read_industry<P: AsRef<std::path::Path> + std::fmt::Debug>(
         path: P,
-    ) -> Result<std::collections::BTreeMap<Integer, Vec<ParameterFields>>, BeaErr> {
+    ) -> Result<std::collections::BTreeMap<Integer, Vec<Naics>>, BeaErr> {
         let path = path.as_ref();
         let table_id = Self::read_table_id(path)?;
         let dataset = Dataset::GDPbyIndustry;
@@ -94,7 +106,18 @@ impl GdpByIndustry {
                 for table in pv.iter() {
                     match table {
                         ParameterValueTable::ParameterFields(pf) => {
-                            industry.push(pf.clone());
+                            if let Some(naics) = Naics::from_code(pf.key()) {
+                                industry.push(naics);
+                            } else {
+                                let error = VariantMissing::new(
+                                    "Naics".to_string(),
+                                    pf.key().to_owned(),
+                                    line!(),
+                                    file!().to_owned(),
+                                );
+                                return Err(error.into());
+                            }
+                            // industry.push(pf.clone());
                         }
                         _ => {
                             return Err(Set::ParameterFieldsMissing.into());
