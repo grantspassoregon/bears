@@ -1,6 +1,6 @@
 use bears_species::{
     ApiMetadata, BeaErr, Dataset, FixedAssets, GdpByIndustry, Iip, InputOutput, IntlServSta,
-    IntlServTrade, Ita, Mne, NiUnderlyingDetail, Nipa, Regional, UnderlyingGdpByIndustry,
+    IntlServTrade, Ita, Mne, NiUnderlyingDetail, Nipa, Regional,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, derive_more::From)]
@@ -29,8 +29,7 @@ pub enum ValueSet {
     NIUnderlyingDetail(NiUnderlyingDetail),
     #[from(Regional)]
     Regional(Regional),
-    #[from(UnderlyingGdpByIndustry)]
-    UnderlyingGDPbyIndustry(UnderlyingGdpByIndustry),
+    UnderlyingGDPbyIndustry(GdpByIndustry),
 }
 
 impl ValueSet {
@@ -52,8 +51,8 @@ impl ValueSet {
                 );
                 Ok(set.into())
             }
-            Dataset::GDPbyIndustry => {
-                let set = GdpByIndustry::from_file(path)?;
+            Dataset::GDPbyIndustry | Dataset::UnderlyingGDPbyIndustry => {
+                let set = GdpByIndustry::from_file(path, dataset)?;
                 tracing::trace!("{dataset} values read.");
                 Ok(set.into())
             }
@@ -195,11 +194,6 @@ impl ValueSet {
                 tracing::trace!("{dataset} has {} LineCode values.", set.line_code().len());
                 tracing::trace!("{dataset} has {} TableName values.", set.table_name().len());
                 tracing::trace!("{dataset} has {} Year values.", set.year().len());
-                Ok(set.into())
-            }
-            Dataset::UnderlyingGDPbyIndustry => {
-                let set = UnderlyingGdpByIndustry::from_file(path)?;
-                tracing::trace!("{dataset} values read.");
                 Ok(set.into())
             }
         }
