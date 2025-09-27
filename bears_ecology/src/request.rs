@@ -2,7 +2,7 @@ use crate::{App, History, Mode, Options, Overwrite, Queue, Scope, bea_data, init
 use bears_species::{
     BeaErr, BeaResponse, Data, Dataset, DatasetMissing, FixedAssets, GdpByIndustry, Iip,
     InputOutput, IoError, Ita, Method, Mne, NiUnderlyingDetail, Nipa, ParameterName, ReqwestError,
-    Results, SerdeJson, UnderlyingGdpByIndustry, VariantMissing,
+    Results, SerdeJson, VariantMissing,
 };
 use strum::IntoEnumIterator;
 
@@ -84,19 +84,9 @@ pub fn init_queue(dataset: Dataset) -> Result<Queue, BeaErr> {
                 queue.push(app.clone());
             }
         }
-        Dataset::GDPbyIndustry => {
-            let data = GdpByIndustry::try_from(&path)?;
+        Dataset::GDPbyIndustry | Dataset::UnderlyingGDPbyIndustry => {
+            let data = GdpByIndustry::try_from((&path, dataset))?;
             for params in data.iter_tables() {
-                app.with_params(params.clone());
-                queue.push(app.clone());
-            }
-        }
-        Dataset::UnderlyingGDPbyIndustry => {
-            tracing::info!("Constructing key set for {dataset}.");
-            let data = UnderlyingGdpByIndustry::try_from(&path)?;
-            tracing::info!("Key set constructed for {dataset}.");
-            for params in data.iter() {
-                tracing::trace!("Adding params {params:#?}");
                 app.with_params(params.clone());
                 queue.push(app.clone());
             }
@@ -515,8 +505,9 @@ async fn value_gdp(dataset: Dataset, app: &mut App, name: ParameterName) -> Resu
     let bea_data = bea_data()?;
     // set table_ids from the Dataset type
     let table_id = match dataset {
-        Dataset::GDPbyIndustry => GdpByIndustry::read_table_id(&bea_data)?,
-        Dataset::UnderlyingGDPbyIndustry => UnderlyingGdpByIndustry::read_table_id(&bea_data)?,
+        Dataset::GDPbyIndustry | Dataset::UnderlyingGDPbyIndustry => {
+            GdpByIndustry::read_table_id(&bea_data, dataset)?
+        }
         // no other BEA datasets use table ids as a parameter value
         other => {
             tracing::error!("GdpByIndustry or UnderlyingGDPbyIndustry required, found {dataset}.");
