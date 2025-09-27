@@ -1,7 +1,6 @@
 use bears_ecology::{bea_data, initial_load, trace_init};
 use bears_species::{
-    BeaErr, Data, Dataset, DatasetMissing, Frequency, GdpByIndustry, Naics, Set,
-    UnderlyingGdpByIndustry, write_json,
+    BeaErr, Data, Dataset, DatasetMissing, Frequency, GdpByIndustry, Naics, Set, write_json,
 };
 use std::collections::BTreeSet;
 use strum::IntoEnumIterator;
@@ -56,20 +55,9 @@ fn get_gdp_keys<'a, P: AsRef<std::path::Path> + std::fmt::Debug>(
 ) -> Result<GdpKeys, BeaErr> {
     let path = path.as_ref().to_owned();
     match dataset {
-        Dataset::GDPbyIndustry => {
-            let data = GdpByIndustry::try_from(&path)?;
-            let freqs = GdpByIndustry::frequencies()
-                .iter()
-                .cloned()
-                .collect::<std::collections::BTreeSet<Frequency>>();
-            let industries = data.industries();
-            let tables = data.table_ids();
-            let years = data.years();
-            Ok(GdpKeys::new(freqs, industries, tables, years))
-        }
-        Dataset::UnderlyingGDPbyIndustry => {
-            let data = UnderlyingGdpByIndustry::try_from(&path)?;
-            let freqs = UnderlyingGdpByIndustry::frequencies()
+        Dataset::GDPbyIndustry | Dataset::UnderlyingGDPbyIndustry => {
+            let data = GdpByIndustry::try_from((&path, dataset))?;
+            let freqs = GdpByIndustry::frequencies(dataset)
                 .iter()
                 .cloned()
                 .collect::<std::collections::BTreeSet<Frequency>>();
@@ -118,12 +106,6 @@ pub async fn get_gdp_codes(dataset: Dataset) -> Result<GdpCodes, BeaErr> {
     data.iter()
         .map(|v| {
             if let Data::Gdp(data) = v {
-                frequencies.append(&mut data.frequencies());
-                industries.append(&mut data.industries());
-                table_ids.append(&mut data.table_ids());
-                years.append(&mut data.years());
-            }
-            if let Data::UnderlyingGdp(data) = v {
                 frequencies.append(&mut data.frequencies());
                 industries.append(&mut data.industries());
                 table_ids.append(&mut data.table_ids());
