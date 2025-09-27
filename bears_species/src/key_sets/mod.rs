@@ -11,9 +11,7 @@ mod nipa;
 mod regional;
 
 pub use fixed_assets::{FixedAssetCodes, FixedAssetData, FixedAssets};
-pub use gdp_by_industry::{
-    GdpByIndustry, GdpData, GdpDatum, GdpTables, UnderlyingGdpByIndustry, UnderlyingGdpData,
-};
+pub use gdp_by_industry::{GdpByIndustry, GdpData, GdpDatum, GdpTables};
 pub use iip::{Iip, IipData, IipInvestments};
 pub use input_output::{InputOutput, InputOutputData, InputOutputIterator, IoCodes};
 pub use intl_serv_sta::IntlServSta;

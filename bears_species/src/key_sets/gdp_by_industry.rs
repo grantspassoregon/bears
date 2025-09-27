@@ -4,6 +4,7 @@ use crate::{
     SerdeJson, Set, VariantMissing, Year, data::result_to_data, map_to_float, map_to_int,
     map_to_string, parse_year, roman_numeral_quarter,
 };
+use strum::IntoEnumIterator;
 
 #[derive(
     Debug,
@@ -16,6 +17,7 @@ use crate::{
     derive_new::new,
 )]
 pub struct GdpByIndustry {
+    dataset: Dataset,
     frequency: Frequencies,
     // BTreeMap of table ids to industry names
     industry: std::collections::BTreeMap<Integer, Vec<Naics>>,
@@ -27,8 +29,13 @@ pub struct GdpByIndustry {
 impl GdpByIndustry {
     /// Hardcoded vector of variants, skipping the need to read from file.
     #[tracing::instrument]
-    pub fn frequencies() -> Frequencies {
-        vec![Frequency::Annual, Frequency::Quarterly].into()
+    pub fn frequencies(dataset: Dataset) -> Frequencies {
+        let freqs = match dataset {
+            Dataset::GDPbyIndustry => vec![Frequency::Annual, Frequency::Quarterly],
+            Dataset::UnderlyingGDPbyIndustry => vec![Frequency::Annual],
+            _ => Frequency::iter().collect::<Vec<Frequency>>(),
+        };
+        Frequencies::from(freqs)
     }
 
     /// Returns the set of all [`Naics`] variants contained in the *industry* field.
@@ -77,21 +84,24 @@ impl GdpByIndustry {
     }
 
     #[tracing::instrument]
-    pub fn from_file<P: AsRef<std::path::Path> + std::fmt::Debug>(path: P) -> Result<Self, BeaErr> {
-        let frequency = Self::frequencies();
-        let industry = Self::read_industry(&path)?;
-        let table_id = Self::read_table_id(&path)?;
-        let year = Self::read_year(&path)?;
-        Ok(Self::new(frequency, industry, table_id, year))
+    pub fn from_file<P: AsRef<std::path::Path> + std::fmt::Debug>(
+        path: P,
+        dataset: Dataset,
+    ) -> Result<Self, BeaErr> {
+        let frequency = Self::frequencies(dataset);
+        let industry = Self::read_industry(&path, dataset)?;
+        let table_id = Self::read_table_id(&path, dataset)?;
+        let year = Self::read_year(&path, dataset)?;
+        Ok(Self::new(dataset, frequency, industry, table_id, year))
     }
 
     #[tracing::instrument]
     pub fn read_industry<P: AsRef<std::path::Path> + std::fmt::Debug>(
         path: P,
+        dataset: Dataset,
     ) -> Result<std::collections::BTreeMap<Integer, Vec<Naics>>, BeaErr> {
         let path = path.as_ref();
-        let table_id = Self::read_table_id(path)?;
-        let dataset = Dataset::GDPbyIndustry;
+        let table_id = Self::read_table_id(path, dataset)?;
         // start with table_id because it is a precondition for other parameter values
         let name = ParameterName::Industry;
         // year values vary by table id
@@ -149,9 +159,9 @@ impl GdpByIndustry {
     #[tracing::instrument]
     pub fn read_table_id<P: AsRef<std::path::Path> + std::fmt::Debug>(
         path: P,
+        dataset: Dataset,
     ) -> Result<Vec<Integer>, BeaErr> {
         let path = path.as_ref();
-        let dataset = Dataset::GDPbyIndustry;
         // start with table_id because it is a precondition for other parameter values
         let name = ParameterName::TableID;
         // open the file at the expected storage location, error if missing
@@ -185,10 +195,10 @@ impl GdpByIndustry {
     #[tracing::instrument]
     pub fn read_year<P: AsRef<std::path::Path> + std::fmt::Debug>(
         path: P,
+        dataset: Dataset,
     ) -> Result<std::collections::BTreeMap<Integer, Vec<Year>>, BeaErr> {
         let path = path.as_ref();
-        let table_id = Self::read_table_id(path)?;
-        let dataset = Dataset::GDPbyIndustry;
+        let table_id = Self::read_table_id(path, dataset)?;
         // start with table_id because it is a precondition for other parameter values
         let name = ParameterName::Year;
         // year values vary by table id
@@ -226,10 +236,12 @@ impl GdpByIndustry {
     }
 }
 
-impl TryFrom<&std::path::PathBuf> for GdpByIndustry {
+impl<P: AsRef<std::path::Path>> TryFrom<(P, Dataset)> for GdpByIndustry {
     type Error = BeaErr;
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Self::from_file(value)
+    fn try_from(value: (P, Dataset)) -> Result<Self, Self::Error> {
+        let (path, dataset) = value;
+        let path = path.as_ref();
+        Self::from_file(path, dataset)
     }
 }
 
@@ -295,7 +307,7 @@ pub struct GdpDatum {
     industry_description: String,
     industry: Naics,
     note_ref: String,
-    quarter: jiff::civil::Date,
+    quarter: Option<jiff::civil::Date>,
     table_id: i64,
     year: jiff::civil::Date,
 }
@@ -332,17 +344,21 @@ impl GdpDatum {
         let year = map_to_string("Year", m)?;
         let year = parse_year(&year)?;
         tracing::trace!("Year: {year}.");
-        let quarter = map_to_string("Quarter", m)?;
-        let quarter = if let Ok(date) = parse_year(&quarter) {
-            date
-        } else if let Some(date) = roman_numeral_quarter(&quarter, year) {
-            date
+        let quarter_str = map_to_string("Quarter", m).ok();
+        let quarter = if let Some(value) = quarter_str {
+            if let Ok(date) = parse_year(&value) {
+                Some(date)
+            } else if let Some(date) = roman_numeral_quarter(&value, year) {
+                Some(date)
+            } else {
+                let error = KeyMissing::new("Quarter".to_owned(), line!(), file!().to_owned());
+                let error = JsonParseError::from(error);
+                return Err(error.into());
+            }
         } else {
-            let error = KeyMissing::new("Quarter".to_owned(), line!(), file!().to_owned());
-            let error = JsonParseError::from(error);
-            return Err(error.into());
+            None
         };
-        tracing::trace!("Quarter: {quarter}.");
+        tracing::trace!("Quarter: {quarter:?}.");
         Ok(Self {
             data_value,
             frequency,
@@ -490,510 +506,6 @@ impl TryFrom<&serde_json::Value> for GdpData {
                     match val {
                         serde_json::Value::Object(m) => {
                             let datum = GdpDatum::read_json(m)?;
-                            data.push(datum);
-                        }
-                        _ => {
-                            let error = NotObject::new(line!(), file!().to_string());
-                            return Err(error.into());
-                        }
-                    }
-                }
-                tracing::trace!("Data found: {} records.", data.len());
-                Ok(Self(data))
-            }
-            _ => {
-                let error = NotArray::new(line!(), file!().to_string());
-                Err(error.into())
-            }
-        }
-    }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    derive_getters::Getters,
-    derive_new::new,
-)]
-pub struct UnderlyingGdpByIndustry {
-    frequency: Frequencies,
-    industry: std::collections::BTreeMap<Integer, Vec<Naics>>,
-    table_id: Vec<Integer>,
-    year: std::collections::BTreeMap<Integer, Vec<Year>>,
-}
-
-impl UnderlyingGdpByIndustry {
-    #[tracing::instrument]
-    pub fn frequencies() -> Frequencies {
-        vec![Frequency::Annual].into()
-    }
-
-    /// Returns the set of all [`Naics`] variants contained in the *industry* field.
-    /// Takes the union of all variants under various table ids.
-    #[tracing::instrument(skip_all)]
-    pub fn industries(&self) -> std::collections::BTreeSet<Naics> {
-        let mut set = std::collections::BTreeSet::new();
-        for items in self.industry.values() {
-            let mut add = items
-                .iter()
-                .cloned()
-                .collect::<std::collections::BTreeSet<Naics>>();
-            set.append(&mut add);
-        }
-        set
-    }
-
-    /// Returns the set of all i32 values contained in the *table_id* field.
-    #[tracing::instrument(skip_all)]
-    pub fn table_ids(&self) -> std::collections::BTreeSet<i32> {
-        self.table_id()
-            .iter()
-            .map(|v| *v.value())
-            .collect::<std::collections::BTreeSet<i32>>()
-    }
-
-    /// Returns the set of all [`Year`] values contained in the *year* field.
-    /// Takes the union of all variants under various table ids and converts them to
-    /// [`jiff::civil::Date`].
-    #[tracing::instrument(skip_all)]
-    pub fn years(&self) -> std::collections::BTreeSet<jiff::civil::Date> {
-        let mut set = std::collections::BTreeSet::new();
-        for items in self.year.values() {
-            let mut add = items
-                .iter()
-                .map(|v| *v.date())
-                .collect::<std::collections::BTreeSet<jiff::civil::Date>>();
-            set.append(&mut add);
-        }
-        set
-    }
-
-    #[tracing::instrument]
-    pub fn iter(&self) -> UnderlyingGDPbyIndustryIterator<'_> {
-        UnderlyingGDPbyIndustryIterator::new(self)
-    }
-
-    /// Primary creation method, called `from_file` instead of `new` because it requires reference to
-    /// a path.
-    #[tracing::instrument]
-    pub fn from_file<P: AsRef<std::path::Path> + std::fmt::Debug>(path: P) -> Result<Self, BeaErr> {
-        let frequency = Self::frequencies();
-        let industry = Self::read_industry(&path)?;
-        tracing::info!("Industries read at {}.", path.as_ref().display());
-        let table_id = Self::read_table_id(&path)?;
-        tracing::info!("Table IDs read at {}.", path.as_ref().display());
-        let year = Self::read_year(&path)?;
-        tracing::info!("Years read at {}.", path.as_ref().display());
-        Ok(Self::new(frequency, industry, table_id, year))
-    }
-
-    #[tracing::instrument]
-    pub fn read_industry<P: AsRef<std::path::Path> + std::fmt::Debug>(
-        path: P,
-    ) -> Result<std::collections::BTreeMap<Integer, Vec<Naics>>, BeaErr> {
-        let path = path.as_ref();
-        let table_id = Self::read_table_id(path)?;
-        let dataset = Dataset::UnderlyingGDPbyIndustry;
-        // start with table_id because it is a precondition for other parameter values
-        let name = ParameterName::Industry;
-        // year values vary by table id
-        let path = path.join(format!("parameter_values/{dataset}_{name}"));
-        let mut industries = std::collections::BTreeMap::new();
-        for id in table_id {
-            // open the file at the expected storage location, error if missing
-            let path = path.join(format!(
-                "{dataset}_{name}_byTableId_{}_values.json",
-                id.value()
-            ));
-            let file = std::fs::File::open(&path)
-                .map_err(|e| IoError::new(path, e, line!(), file!().into()))?;
-            // read the file to json
-            let rdr = std::io::BufReader::new(file);
-            let res: serde_json::Value = serde_json::from_reader(rdr)
-                .map_err(|e| SerdeJson::new(e, line!(), file!().to_string()))?;
-            // parse to internal bea response format
-            let data = BeaResponse::try_from(&res)?;
-            let results = data.results();
-            let mut industry = Vec::new();
-            // access parameter values from response
-            if let Some(pv) = results.into_parameter_values() {
-                for table in pv.iter() {
-                    match table {
-                        ParameterValueTable::ParameterFields(pf) => {
-                            if let Some(naics) = Naics::from_code(pf.key()) {
-                                industry.push(naics);
-                            } else {
-                                let error = VariantMissing::new(
-                                    "Naics".to_string(),
-                                    pf.key().to_owned(),
-                                    line!(),
-                                    file!().to_owned(),
-                                );
-                                return Err(error.into());
-                            }
-                        }
-                        _ => {
-                            return Err(Set::ParameterFieldsMissing.into());
-                        }
-                    }
-                }
-                tracing::trace!("{dataset} contains {} {name} values.", industry.len());
-                industries.insert(id, industry);
-            } else {
-                tracing::warn!("Results must be of type ParameterValues");
-                return Err(Set::ParameterValuesMissing.into());
-            }
-        }
-        Ok(industries)
-    }
-
-    #[tracing::instrument]
-    pub fn read_table_id<P: AsRef<std::path::Path> + std::fmt::Debug>(
-        path: P,
-    ) -> Result<Vec<Integer>, BeaErr> {
-        let path = path.as_ref();
-        let dataset = Dataset::UnderlyingGDPbyIndustry;
-        // start with table_id because it is a precondition for other parameter values
-        let name = ParameterName::TableID;
-        // open the file at the expected storage location, error if missing
-        let path = path.join(format!(
-            "parameter_values/{dataset}_{name}_parameter_values.json"
-        ));
-        let file = std::fs::File::open(&path)
-            .map_err(|e| IoError::new(path, e, line!(), file!().into()))?;
-        // read the file to json
-        let rdr = std::io::BufReader::new(file);
-        let res: serde_json::Value = serde_json::from_reader(rdr)
-            .map_err(|e| SerdeJson::new(e, line!(), file!().to_string()))?;
-        // parse to internal bea response format
-        let data = BeaResponse::try_from(&res)?;
-        let results = data.results();
-
-        let mut table_id = Vec::new();
-        // access parameter values from response
-        if let Some(pv) = results.into_parameter_values() {
-            for table in pv.iter() {
-                table_id.push(Integer::try_from(table)?);
-            }
-            tracing::trace!("{dataset} contains {} {name} values.", table_id.len());
-            Ok(table_id)
-        } else {
-            tracing::warn!("Results must be of type ParameterValues");
-            Err(Set::ParameterValuesMissing.into())
-        }
-    }
-
-    // TODO: fix the redundant call to read_table_id
-    #[tracing::instrument]
-    pub fn read_year<P: AsRef<std::path::Path> + std::fmt::Debug>(
-        path: P,
-    ) -> Result<std::collections::BTreeMap<Integer, Vec<Year>>, BeaErr> {
-        let path = path.as_ref();
-        let table_id = Self::read_table_id(path)?;
-        let dataset = Dataset::UnderlyingGDPbyIndustry;
-        // start with table_id because it is a precondition for other parameter values
-        let name = ParameterName::Year;
-        // year values vary by table id
-        let path = path.join(format!("parameter_values/{dataset}_{name}"));
-        let mut years = std::collections::BTreeMap::new();
-        for id in table_id {
-            // open the file at the expected storage location, error if missing
-            let path = path.join(format!(
-                "{dataset}_{name}_byTableId_{}_values.json",
-                id.value()
-            ));
-            let file = std::fs::File::open(&path)
-                .map_err(|e| IoError::new(path, e, line!(), file!().into()))?;
-            // read the file to json
-            let rdr = std::io::BufReader::new(file);
-            let res: serde_json::Value = serde_json::from_reader(rdr)
-                .map_err(|e| SerdeJson::new(e, line!(), file!().to_string()))?;
-            // parse to internal bea response format
-            let data = BeaResponse::try_from(&res)?;
-            let results = data.results();
-            let mut year = Vec::new();
-            // access parameter values from response
-            if let Some(pv) = results.into_parameter_values() {
-                for table in pv.iter() {
-                    year.push(Year::try_from(table)?);
-                }
-                tracing::trace!("{dataset} contains {} {name} values.", year.len());
-                years.insert(id, year);
-            } else {
-                tracing::warn!("Results must be of type ParameterValues");
-                return Err(Set::ParameterValuesMissing.into());
-            }
-        }
-        Ok(years)
-    }
-}
-
-impl TryFrom<&std::path::PathBuf> for UnderlyingGdpByIndustry {
-    type Error = BeaErr;
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        Self::from_file(value)
-    }
-}
-
-pub struct UnderlyingGDPbyIndustryIterator<'a> {
-    table_id: std::slice::Iter<'a, Integer>,
-}
-
-impl<'a> UnderlyingGDPbyIndustryIterator<'a> {
-    #[tracing::instrument]
-    pub fn new(data: &'a UnderlyingGdpByIndustry) -> Self {
-        let table_id = data.table_id().iter();
-        Self { table_id }
-    }
-}
-
-impl Iterator for UnderlyingGDPbyIndustryIterator<'_> {
-    type Item = std::collections::BTreeMap<String, String>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // empty parameters dictionary
-        let mut params = std::collections::BTreeMap::new();
-
-        // advance state
-        // let current_id = if let Some(id) = &self.current_table {
-        //     id.value().to_string()
-        // } else {
-        //     let current_id = self.table_id.next()?;
-        //     self.current_table = Some(current_id.clone());
-        //     if let Some(fields) = self.data.industry.get(current_id) {
-        //         self.industries = Some(fields.iter());
-        //     }
-        //     current_id.value().to_string()
-        // };
-
-        // set industry
-        // let industry = if let Some(industries) = &mut self.industries {
-        //     match industries.next() {
-        //         Some(value) => value.key(),
-        //         None => {
-        //             self.current_table = None;
-        //             return self.next();
-        //         }
-        //     }
-        // } else {
-        //     tracing::error!("Industry should not start as None");
-        //     return None;
-        // };
-        let key = ParameterName::Industry.to_string();
-        let value = "ALL".to_owned();
-        params.insert(key, value);
-
-        // set table_id
-        let current_id = self.table_id.next()?.value().to_string();
-        let key = ParameterName::TableID.to_string();
-        params.insert(key, current_id);
-
-        // set Frequency to all
-        // UnderlyingGDPbyIndustry only has Annual "A" data available
-        let key = ParameterName::Frequency.to_string();
-        let value = "A".to_owned();
-        params.insert(key, value);
-
-        // set years to all
-        let key = ParameterName::Year.to_string();
-        let value = "ALL".to_owned();
-        params.insert(key, value);
-
-        Some(params)
-    }
-}
-
-/// Return value format associated with the
-/// [`Dataset::UnderlyingGDPbyIndustry`](crate::Dataset::UnderlyingGDPbyIndustry) variant.
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    PartialOrd,
-    serde::Deserialize,
-    serde::Serialize,
-    derive_getters::Getters,
-)]
-pub struct UnderlyingGdpDatum {
-    data_value: f64,
-    frequency: Frequency,
-    industry_description: String,
-    industry: Naics,
-    note_ref: String,
-    table_id: i64,
-    year: jiff::civil::Date,
-}
-
-impl UnderlyingGdpDatum {
-    /// Attempts to map a [`serde_json::Map`] `m` to an instance of `UnderlyingGpdDatum`.
-    ///
-    /// Encapsulates the logic of retrieving the `UnderlyingGpdDatum` when converting the JSON representation
-    /// into internal data types.  Used to implement the [`TryFrom`] trait from [`serde_json::Value`] to `self`.
-    #[tracing::instrument]
-    pub fn read_json(m: &serde_json::Map<String, serde_json::Value>) -> Result<Self, BeaErr> {
-        tracing::trace!("Reading MneDiDatum.");
-        let data_value = map_to_float("DataValue", m)?;
-        tracing::trace!("Data Value: {data_value}.");
-        let frequency = map_to_string("Frequency", m)?;
-        let frequency = Frequency::from_value(&frequency)?;
-        tracing::trace!("Frequency: {}.", frequency.value());
-        let industry_description = map_to_string("IndustrYDescription", m)?;
-        tracing::trace!("Industry Description: {industry_description}.");
-        let industry = map_to_string("Industry", m)?;
-        let industry = if let Some(naics) = Naics::from_code(&industry) {
-            naics
-        } else {
-            let error =
-                VariantMissing::new(industry.clone(), industry, line!(), file!().to_string());
-            return Err(error.into());
-        };
-        tracing::trace!("Industry: {industry:?}.");
-        let note_ref = map_to_string("NoteRef", m)?;
-        tracing::trace!("Note Ref: {note_ref}.");
-        let table_id = map_to_int("TableID", m)?;
-        // let table_id = RowCode::from_value(m, &row, naics)?;
-        tracing::trace!("Note Ref: {note_ref}.");
-        let year = map_to_string("Year", m)?;
-        let year = parse_year(&year)?;
-        tracing::trace!("Year: {year}.");
-        Ok(Self {
-            data_value,
-            frequency,
-            industry_description,
-            industry,
-            note_ref,
-            table_id,
-            year,
-        })
-    }
-
-    #[tracing::instrument]
-    pub fn to_industry(&self) -> (String, String) {
-        (
-            self.industry().code(),
-            self.industry_description().to_owned(),
-        )
-    }
-}
-
-/// `UnderlyingGdpData` represents the `Data` portion of the `Results` from a BEA response.
-/// These portions of the response have corresponding internal library representations, [`Data`],
-/// [`Results`](crate::Results) and [`BeaResponse`] respectively.  This is the data type contained
-/// within the [`Data::UnderlyingGdpData`] variant.
-///
-/// Functionally, `UnderlyingGdpData` is a thin wrapper around a vector of type [`UnderlyingGdpDatum`].
-/// This type implements [`TryFrom`] for `&PathBuf`, which I suppose is what Path is for, but I'm
-/// still trying to figure out the idiom here.
-/// This type also implements [`TryFrom`] for references to a [`serde_json::Value`].  Given a
-/// reference to a path, the impl for try_from will then call the impl associated with the
-/// [`serde_json::Value`], which calls [`UnderlyingGdpDatum::read_json`], bubbling up any errors.
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    PartialOrd,
-    serde::Deserialize,
-    serde::Serialize,
-    derive_more::Deref,
-    derive_more::DerefMut,
-    derive_more::From,
-    derive_more::AsRef,
-    derive_more::AsMut,
-)]
-#[from(Vec<UnderlyingGdpDatum>)]
-pub struct UnderlyingGdpData(Vec<UnderlyingGdpDatum>);
-
-impl UnderlyingGdpData {
-    #[tracing::instrument]
-    pub fn frequencies(&self) -> std::collections::BTreeSet<Frequency> {
-        let mut set = std::collections::BTreeSet::new();
-        self.iter()
-            .map(|v| set.insert(v.frequency().to_owned()))
-            .for_each(drop);
-        set
-    }
-
-    #[tracing::instrument]
-    pub fn industries(&self) -> std::collections::BTreeSet<Naics> {
-        let mut set = std::collections::BTreeSet::new();
-        self.iter()
-            .map(|v| set.insert(v.industry().to_owned()))
-            .for_each(drop);
-        set
-    }
-
-    #[tracing::instrument]
-    pub fn table_ids(&self) -> std::collections::BTreeSet<i64> {
-        let mut set = std::collections::BTreeSet::new();
-        self.iter()
-            .map(|v| set.insert(*v.table_id()))
-            .for_each(drop);
-        set
-    }
-
-    #[tracing::instrument]
-    pub fn years(&self) -> std::collections::BTreeSet<jiff::civil::Date> {
-        let mut set = std::collections::BTreeSet::new();
-        self.iter()
-            .map(|v| set.insert(v.year().to_owned()))
-            .for_each(drop);
-        set
-    }
-}
-
-impl TryFrom<&std::path::PathBuf> for UnderlyingGdpData {
-    type Error = BeaErr;
-
-    fn try_from(value: &std::path::PathBuf) -> Result<Self, Self::Error> {
-        let file = std::fs::File::open(value)
-            .map_err(|e| IoError::new(value.into(), e, line!(), file!().into()))?;
-        let rdr = std::io::BufReader::new(file);
-        let res: serde_json::Value = serde_json::from_reader(rdr)
-            .map_err(|e| SerdeJson::new(e, line!(), file!().to_string()))?;
-        let data = BeaResponse::try_from(&res)?;
-        tracing::trace!("Response read.");
-        let results = data.results();
-        if let Some(data) = results.into_data() {
-            match data {
-                Data::UnderlyingGdp(value) => {
-                    tracing::trace!("{} GdpData records read.", value.len());
-                    Ok(value)
-                }
-                _ => {
-                    let error =
-                        DatasetMissing::new("GdpData".to_string(), line!(), file!().to_string());
-                    Err(error.into())
-                }
-            }
-        } else {
-            tracing::warn!("Data variant missing.");
-            let error = VariantMissing::new(
-                "Data variant missing".to_string(),
-                "Results".to_string(),
-                line!(),
-                file!().to_string(),
-            );
-            Err(error.into())
-        }
-    }
-}
-
-impl TryFrom<&serde_json::Value> for UnderlyingGdpData {
-    type Error = BeaErr;
-    fn try_from(value: &serde_json::Value) -> Result<Self, Self::Error> {
-        tracing::trace!("Reading GdpData");
-        match result_to_data(value)? {
-            serde_json::Value::Array(v) => {
-                let mut data = Vec::new();
-                for val in v {
-                    match val {
-                        serde_json::Value::Object(m) => {
-                            let datum = UnderlyingGdpDatum::read_json(m)?;
                             data.push(datum);
                         }
                         _ => {

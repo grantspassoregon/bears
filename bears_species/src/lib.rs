@@ -29,7 +29,6 @@ pub use key_sets::{
     GdpDatum, GdpTables, Iip, IipData, IipInvestments, InputOutput, InputOutputData,
     InputOutputIterator, IntlServSta, IntlServTrade, IoCodes, Ita, ItaData, ItaDatum, ItaIterator,
     Mne, MneIter, MneKind, NiUnderlyingDetail, Nipa, NipaData, NipaIterator, Regional,
-    UnderlyingGdpByIndustry, UnderlyingGdpData,
 };
 pub use keys::{
     AffiliateKind, AffiliateLevel, Affiliation, AnnotatedInteger, Annotation, AnnotationMissing,
