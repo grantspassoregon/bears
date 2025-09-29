@@ -41,7 +41,7 @@ pub struct Options {
     method: Option<Method>,
     param_name: Option<ParameterName>,
     table: Option<String>,
-    table_id: Option<i32>,
+    table_id: Option<i64>,
     target: Option<ParameterName>,
     year: Option<String>,
 }
