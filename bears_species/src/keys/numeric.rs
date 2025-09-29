@@ -20,14 +20,14 @@ use crate::{
 )]
 #[display("{}", self.value)]
 pub struct Integer {
-    value: i32,
+    value: i64,
     description: String,
 }
 
 impl TryFrom<&ParameterFields> for Integer {
     type Error = ParseInt;
     fn try_from(value: &ParameterFields) -> Result<Self, Self::Error> {
-        match value.key().parse::<i32>() {
+        match value.key().parse::<i64>() {
             Ok(num) => Ok(Self::new(num, value.desc().into())),
             Err(source) => {
                 let error = ParseInt::new(value.key().into(), source, line!(), file!().into());
@@ -40,7 +40,7 @@ impl TryFrom<&ParameterFields> for Integer {
 impl TryFrom<&MneDoi> for Integer {
     type Error = ParseInt;
     fn try_from(value: &MneDoi) -> Result<Self, Self::Error> {
-        match value.key().parse::<i32>() {
+        match value.key().parse::<i64>() {
             Ok(num) => Ok(Self::new(num, value.desc().into())),
             Err(source) => {
                 let error = ParseInt::new(value.key().into(), source, line!(), file!().into());
