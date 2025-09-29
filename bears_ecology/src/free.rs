@@ -14,7 +14,6 @@ pub fn bea_data() -> Result<std::path::PathBuf, EnvError> {
 /// for debugging and diagnostics.
 #[tracing::instrument]
 pub fn trace_init() -> Result<(), BeaErr> {
-    dotenvy::dotenv().ok();
     let path = bea_data()?;
     let path = path.join("history");
     if !path.exists() {
