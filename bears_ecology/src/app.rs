@@ -397,7 +397,8 @@ impl App {
                     }
                     Dataset::Iip => {
                         // let component = query["Component"].clone();
-                        let toi = query["TypeOfInvestment"].clone();
+                        let name = ParameterName::Investment;
+                        let toi = query[&name.to_string()].clone();
                         Ok(path.join(format!("IIP_{toi}.json")))
                     }
                     Dataset::InputOutput => {
