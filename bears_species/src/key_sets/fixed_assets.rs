@@ -388,30 +388,3 @@ impl TryFrom<&serde_json::Value> for FixedAssetData {
         }
     }
 }
-
-#[allow(clippy::too_many_arguments)]
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    derive_getters::Getters,
-    derive_new::new,
-)]
-/// Contains the value sets for each field in [`FixedAssetDatum`] contained in a [`FixedAssetData`].
-pub struct FixedAssetCodes {
-    cl_units: std::collections::BTreeSet<Measure>,
-    line_descriptions: std::collections::BTreeSet<String>,
-    line_numbers: std::collections::BTreeSet<i64>,
-    metric_names: std::collections::BTreeSet<String>,
-    series_codes: std::collections::BTreeSet<String>,
-    table_names: std::collections::BTreeSet<FixedAssetTable>,
-    time_periods: std::collections::BTreeSet<jiff::civil::Date>,
-    unit_mults: std::collections::BTreeSet<i64>,
-}
