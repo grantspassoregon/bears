@@ -315,26 +315,3 @@ impl TryFrom<&serde_json::Value> for InputOutputData {
         }
     }
 }
-
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    derive_getters::Getters,
-    derive_new::new,
-)]
-pub struct IoCodes {
-    column_codes: std::collections::BTreeSet<Naics>,
-    column_types: std::collections::BTreeSet<String>,
-    row_codes: std::collections::BTreeSet<Naics>,
-    row_types: std::collections::BTreeSet<String>,
-    table_ids: std::collections::BTreeSet<InputOutputTable>,
-    years: std::collections::BTreeSet<jiff::civil::Date>,
-}
