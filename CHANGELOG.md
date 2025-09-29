@@ -2,6 +2,96 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.13] - 2025-09-29
+
+### 🚀 Features
+
+- `Measure` enum added for variants of the Classification Unit parameter in the FixedAssets and Iip datasets.
+- `IipDatum` updated to use the `Measure` type for the cl_unit field.
+- `FixedAssetDatum` updated to use the `Measure` type in the *cl_unit* field.
+- Methods added to `FixedAssedData` for retrieving value sets for each field in the struct.
+- `FixedAssetCodes` type added to facilitate testing intersection of value sets between source data and target parameters.
+- `params` and `new` methods added to `FixedAssets`, and a TryFrom impl added from `ParameterValueTable`.
+- The *table_name* field is now a `FixedAssetTable` instead of a `TableName` for cleaner comparison between keys and values.
+- `GdpTables` iterator introduced for simpler code and clearer intent, and linked to the `iter_tables` method in `GdpByIndustry`.  Swapped `iter_tables` for `iter` at call site in the *request.rs*.
+- Download option added to CLI.
+- `Classification` type added for the *Classification* parameter in the MNE dataset.
+- `FromStr` and `Display` impls added to `Footnotes` types. A `description` method added linking the variant to the BEA description.
+- Methods *description*, *key* and *source* added to `DirectionKind` type to enable it to serve independently to represent the *DirectionOfInvestment* parameter in the MNE dataset.
+- Method *params* added to `OwnershipLevel` and `AffiliateLevel` to streamline API call generation in the MNE dataset.
+- `MneDoi` type replaced with `Classification` for the *Classification* parameter. `Footnotes` type replaces `BoolOptions` for the *GetFootnotes* parameter in the MNE dataset.  `MneIterator` type replaced by separate `MneIter` and `AmneIter` types.
+- `bears_health` added as dependecy to `bears` cli.
+- `Queue` variant added to `Action` enum for the user CLI.
+- Queue inspection added to CLI, allowing the user to dump the queue contents to a JSON file in the BEA_DATA directory.
+- Variant added to `NaicsInputOutput` type to accommodate Hospitals and Nursing and Residential Care Facilities (622HO) in the GdpByIndustry dataset.
+- `GdpByIndustry` now maps industries to the `Naics` type.  Methods *industries* and *years* added to produce value sets of the *industry* and *year* fields.
+- Migrate the `write_json` function from `bears_health` to `bears_species`.  Dependency of `bears` on `bear_health` removed.
+- HashMap updated to BTreeMap in `GdpByIndustry`.
+- Dependencies `derive-getters` and `derive-new` added to bears_health.
+- `UnderlyingGdpByIndustry` removed and `GdpByIndustry` generalized to handle both cases by adding the `dataset` field to track the origin dataset.
+- `init_queue` function updated to use the `GdpByIndustry` type for the `UnderlyingGDPbyIndustry` dataset.
+- `ValueSet` updated to use the `GdpByIndustry` type for the `UnderlyingGDPbyIndustry` dataset.
+- Variants added to `ParameterName` to accommodate parameter names in the `value_keys` testing suite.
+- `Integer` updated to wrap the *i64* type.
+- `GdpByIndustry::table_ids` method updated to use the i64 type.
+- `IoCodes` type removed from `bears_species` crate.
+- `FixedAssetCodes` removed from the `bears_species` crate.
+- Value set methods added to `Iip` for the `value_sets` testing suite.
+- Files in the `key_sets` module updated follwing the `_set` naming convention.
+- `FixedAssetKeys` added to facilitate testing of key sets for the `FixedAssets` dataset.
+- `GdpKeys` type added to facilitate testing of the `GdpByIndustry` and `UnderlyingGdpByIndustry` datasets.
+- 'value_sets' module renamed to 'key_sets' for greater clarity of intent.
+- `IipKeys` type added to facilitate testing of key sets in the `Iip` dataset.
+- `IoKeys` added to facilitate testing of key sets in the `InputOutput` dataset.
+- Tests for the `Iip` dataset moved to `key_sets` module.
+- `difference` and `params` functions added to `helpers` module for comparing key sets.
+- Testing suite updated with methods for comparing key sets.
+- Obligation to call `dotenvy` moved outside the `trace_init` method.
+- The `table_id` field now accepts the i64 type instead of i32/
+
+### 🐛 Bug Fixes
+
+- Dev-dependency reference removed from workspace.
+- Key for all values corrected in the *Frequency* parameter of the MNE dataset.
+- Query fix for calls the `Iip` dataset.
+
+### 🚜 Refactor
+
+- Unused `YearSelection` type removed.
+- Iteration of the `GdpByIndustry` type moved to `iter_tables` method.  Previous implementation of Iterator for GdpByIndustry removed.
+- The *iter_mne* and *iter_amne* methods have replaced the *iter* method for generating the API call queue of the MNE dataset.
+- `Cli` struct moved to `command` module.  Details of CLI actions moved to `Action` method *act*.  `bears_health` removed as dependency for `bears` cli.
+- Value set tests moved to the `value_sets` module.
+- Contents of `industry_codes` module moved to `gdp_codes` in `value_sets`.
+
+### 📚 Documentation
+
+- Doc comments added to undocumented methods.
+
+### 🧪 Testing
+
+- Value set tests added for the `FixedAssets` dataset.
+- Tests for value sets updated to use `FixedAssetTable` type instead of `TableName`.
+- Testing suites updated to use the `GdpByIndustry` type for the `UnderlyingGDPbyIndustry` dataset.
+
+### ⚙️ Miscellaneous Tasks
+
+- Updates to dependencies `bytesize`, `console`, `serde` and `serde_json`.
+- Tracing instrumentation added to `FixedAssets` methods.
+- Spacing added for code clarity.
+- Version updated to 0.1.13.
+- Patch updates to `anyhow`, `clap` and `serde` dependencies.
+- Public visibility added to the `Classification` type.
+- Visibility adjusted, adding `MneIter` and `AmneIter` types, and removing unused iterator types.
+- Visibility adjustments, adding new types to the root level and removing unused types.
+- Visibility updates.
+- Patch update to the `serde` dependency.
+- Patch update to the `serde` dependency.
+- Visibility updated to remove deleted types.
+- Mod file updated with new types.
+- Visibility updated for new types and deleted functions.
+- Updates to justfile, trying out --workspace.
+
 ## [0.1.12] - 2025-09-08
 
 ### 🚀 Features
@@ -57,6 +147,7 @@ All notable changes to this project will be documented in this file.
 - Cargo lock updated.
 - Visibility updated for new types and some restructuring.
 - Visibility updated for new tests.
+- Dist init run for new version of cargo dist.
 
 ## [0.1.11] - 2025-09-02
 
