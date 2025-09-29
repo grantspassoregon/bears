@@ -140,11 +140,6 @@ jobs:
           merge-multiple: true
       - name: Install cargo-auditable
         run: ${{ matrix.install_cargo_auditable.run }}
-      - name: Install omnibor
-        # we specify bash to get pipefail; it guards against the `curl` command
-        # failing. otherwise `sh` won't catch that `curl` return non-0
-        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/omnibor/omnibor-rs/releases/download/omnibor-cli-v0.7.0/omnibor-cli-installer.sh | sh"
-        shell: bash
       - name: Install dependencies
         run: |
           ${{ matrix.packages_install }}
@@ -202,11 +197,6 @@ jobs:
         # we specify bash to get pipefail; it guards against the `curl` command
         # failing. otherwise `sh` won't catch that `curl` return non-0
         run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/CycloneDX/cyclonedx-rust-cargo/releases/download/cargo-cyclonedx-0.5.5/cargo-cyclonedx-installer.sh | sh"
-        shell: bash
-      - name: Install omnibor
-        # we specify bash to get pipefail; it guards against the `curl` command
-        # failing. otherwise `sh` won't catch that `curl` return non-0
-        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/omnibor/omnibor-rs/releases/download/omnibor-cli-v0.7.0/omnibor-cli-installer.sh | sh"
         shell: bash
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
       - name: Fetch local artifacts
