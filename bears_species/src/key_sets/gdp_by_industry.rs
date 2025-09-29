@@ -55,11 +55,11 @@ impl GdpByIndustry {
 
     /// Returns the set of all i32 values contained in the *table_id* field.
     #[tracing::instrument(skip_all)]
-    pub fn table_ids(&self) -> std::collections::BTreeSet<i32> {
+    pub fn table_ids(&self) -> std::collections::BTreeSet<i64> {
         self.table_id()
             .iter()
             .map(|v| *v.value())
-            .collect::<std::collections::BTreeSet<i32>>()
+            .collect::<std::collections::BTreeSet<i64>>()
     }
 
     /// Returns the set of all [`Year`] values contained in the *year* field.
