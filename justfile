@@ -5,7 +5,7 @@ cliff version:
   git commit -m "CHANGELOG.md updated for version {{version}}"
 
 # Installs the latests versions of package-specific tooling from cargo.
-tool_up:
+tools:
   cargo install just git-cliff cargo-audit cargo-auditable omnibor-cli
   cargo install cargo-dist cargo-release --locked
 
@@ -15,8 +15,8 @@ dist:
   dist plan
 
 # Runs cargo release, not for use on workspaces.
-prepare version: tool_up dist
-  cargo release {{version}}
+prepare version: tools dist
+  cargo release {{version}} --workspace
 
 # Load a particular dataset.
 load dataset:
