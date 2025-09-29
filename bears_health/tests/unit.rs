@@ -1,3 +1,4 @@
+use bears_ecology::{bea_data, trace_init};
 use bears_species::Dataset;
 
 #[test]
@@ -74,8 +75,8 @@ fn health_check() -> anyhow::Result<()> {
     check_components()?;
     check_aoc_sta()?;
     check_naics()?;
-    check_io_codes()?;
-    check_industry_codes()?;
+    check_expected_keys()?;
+    check_observed_keys()?;
     Ok(())
 }
 
@@ -113,58 +114,51 @@ fn check_naics() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn check_industry_codes() -> anyhow::Result<()> {
-    bears_health::check_gdp_codes().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn check_io_codes() -> anyhow::Result<()> {
-    bears_health::check_io_codes().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn check_io_keys() -> anyhow::Result<()> {
-    bears_health::check_io_keys().await?;
-    Ok(())
-}
-
 #[test]
-fn get_io_keys() -> anyhow::Result<()> {
-    bears_health::io_keys()?;
-    Ok(())
-}
-
-#[test]
-fn get_gdp_keys() -> anyhow::Result<()> {
-    bears_health::gdp_keys(Dataset::GDPbyIndustry)?;
-    bears_health::gdp_keys(Dataset::UnderlyingGDPbyIndustry)?;
-    Ok(())
-}
-
-#[test]
-fn get_fa_keys() -> anyhow::Result<()> {
-    bears_health::fa_keys()?;
+fn print_expected_keys() -> anyhow::Result<()> {
+    trace_init()?;
+    let path = bea_data()?;
+    bears_health::FixedAssetKeys::print_expected(&path)?;
+    bears_health::GdpKeys::print_expected(&path, Dataset::GDPbyIndustry)?;
+    bears_health::GdpKeys::print_expected(&path, Dataset::UnderlyingGDPbyIndustry)?;
+    bears_health::IipKeys::print_expected(&path)?;
+    bears_health::IoKeys::print_expected(&path)?;
     Ok(())
 }
 
 #[tokio::test]
-async fn check_fa_keys() -> anyhow::Result<()> {
-    bears_health::check_fa_keys().await?;
+async fn print_observed_keys() -> anyhow::Result<()> {
+    trace_init()?;
+    let path = bea_data()?;
+    bears_health::FixedAssetKeys::print_observed(&path).await?;
+    bears_health::GdpKeys::print_observed(&path, Dataset::GDPbyIndustry).await?;
+    bears_health::GdpKeys::print_observed(&path, Dataset::UnderlyingGDPbyIndustry).await?;
+    bears_health::IipKeys::print_observed(&path).await?;
+    bears_health::IoKeys::print_observed(&path).await?;
     Ok(())
 }
 
 #[tokio::test]
-async fn get_fa_codes() -> anyhow::Result<()> {
-    bears_health::fa_codes().await?;
+async fn check_expected_keys() -> anyhow::Result<()> {
+    trace_init()?;
+    let path = bea_data()?;
+    bears_health::FixedAssetKeys::check_expected(&path).await?;
+    bears_health::GdpKeys::check_expected(&path, Dataset::GDPbyIndustry)?;
+    bears_health::GdpKeys::check_expected(&path, Dataset::UnderlyingGDPbyIndustry)?;
+    bears_health::IipKeys::check_expected(&path)?;
+    bears_health::IoKeys::check_expected(&path)?;
     Ok(())
 }
 
 #[tokio::test]
-async fn check_fa_codes() -> anyhow::Result<()> {
-    bears_health::check_fa_codes().await?;
+async fn check_observed_keys() -> anyhow::Result<()> {
+    trace_init()?;
+    let path = bea_data()?;
+    bears_health::FixedAssetKeys::check_observed(&path).await?;
+    bears_health::GdpKeys::check_observed(&path, Dataset::GDPbyIndustry).await?;
+    bears_health::GdpKeys::check_observed(&path, Dataset::UnderlyingGDPbyIndustry).await?;
+    bears_health::IipKeys::check_observed(&path).await?;
+    bears_health::IoKeys::check_observed(&path).await?;
     Ok(())
 }
 
@@ -254,23 +248,5 @@ fn download_history() -> anyhow::Result<()> {
 #[test]
 fn download_summary() -> anyhow::Result<()> {
     bears_health::download_summary()?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn io_codes() -> anyhow::Result<()> {
-    bears_health::io_codes().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn industry_codes() -> anyhow::Result<()> {
-    bears_health::gdp_codes().await?;
-    Ok(())
-}
-
-#[tokio::test]
-async fn iip_codes() -> anyhow::Result<()> {
-    bears_health::iip_codes().await?;
     Ok(())
 }
