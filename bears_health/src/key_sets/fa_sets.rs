@@ -156,6 +156,8 @@ impl FixedAssetKeys {
         Ok(())
     }
 
+    /// Compare expected values to enum representation.  Print missing and unused parameters to the
+    /// BEA_DATA directory.
     #[tracing::instrument]
     pub async fn check_expected<P: AsRef<std::path::Path> + std::fmt::Debug>(
         path: P,
