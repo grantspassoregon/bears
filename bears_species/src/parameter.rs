@@ -1,6 +1,6 @@
 use crate::{
-    json_str, map_to_bool, map_to_string, FromStrError, JsonParseError, JsonParseErrorKind,
-    KeyMissing, NotArray, NotObject,
+    FromStrError, JsonParseError, JsonParseErrorKind, KeyMissing, NotArray, NotObject, json_str,
+    map_to_bool, map_to_string,
 };
 use serde::de::Deserializer;
 use serde::{Deserialize, Serialize};
@@ -202,6 +202,9 @@ pub enum ParameterName {
     AreaOrCountry,
     Channel,
     Classification,
+    ClUnit,
+    ColumnCode,
+    ColumnType,
     Component,
     Country,
     Dataset,
@@ -212,20 +215,30 @@ pub enum ParameterName {
     GetFootnotes,
     Indicator,
     Industry,
+    IndustryCode,
     Investment,
     LineCode,
+    LineDescription,
+    LineNumber,
+    MetricName,
     NonbankAffiliatesOnly,
     OwnershipLevel,
     ParentInvestment,
+    RowCode,
+    RowType,
+    SeriesCode,
     SeriesID,
     ShowMillions,
     State,
     TableID,
     #[default]
     TableName,
+    TimePeriod,
+    TimeSeriesCode,
     TradeDirection,
     TypeOfInvestment,
     TypeOfService,
+    UnitMult,
     Year,
 }
 
