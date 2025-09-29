@@ -3,7 +3,7 @@ resolver = "2"
 members = ["bears_ecology", "bears_health", "bears", "bears_species"]
 
 [workspace.package]
-version = "0.1.13"
+version = "0.1.14"
 edition = "2024"
 authors = ["Erik Rose <erik.w.rose@gmail.com>"]
 description = "A Rust wrapper for the Bureau of Economic Analysis (BEA) REST API."
@@ -14,10 +14,10 @@ keywords = ["economics", "finance", "rest"]
 categories = ["asynchronous", "finance"]
 
 [workspace.dependencies]
-bears_ecology = { version = "0.1.13", path = "./bears_ecology" }
-bears_health = { version = "0.1.13", path = "./bears_health" }
-bears = { version = "0.1.13", path = "./bears" }
-bears_species = { version = "0.1.13", path = "./bears_species" }
+bears_ecology = { version = "0.1.14", path = "./bears_ecology" }
+bears_health = { version = "0.1.14", path = "./bears_health" }
+bears = { version = "0.1.14", path = "./bears" }
+bears_species = { version = "0.1.14", path = "./bears_species" }
 anyhow = "1.0.100"
 assert-json-diff = "2.0.2"
 bytesize = { version = "2.1.0", features = ["serde"] }

@@ -126,7 +126,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bears"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "bears_ecology",
  "bears_species",
@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "bears_ecology"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "assert-json-diff",
  "bears_species",
@@ -175,7 +175,7 @@ dependencies = [
 
 [[package]]
 name = "bears_health"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "anyhow",
  "bears_ecology",
@@ -193,7 +193,7 @@ dependencies = [
 
 [[package]]
 name = "bears_species"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "convert_case 0.8.0",
  "csv",
