@@ -31,6 +31,39 @@ impl Iip {
     pub fn iter_investments(&self) -> IipInvestments<'_> {
         IipInvestments::new(self)
     }
+
+    #[tracing::instrument(skip_all)]
+    pub fn components(&self) -> std::collections::BTreeSet<Component> {
+        self.component()
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<Component>>()
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn frequencies(&self) -> std::collections::BTreeSet<ItaFrequency> {
+        self.frequency()
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<ItaFrequency>>()
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn investments(&self) -> std::collections::BTreeSet<Investment> {
+        self.type_of_investment()
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<Investment>>()
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn years(&self) -> std::collections::BTreeSet<jiff::civil::Date> {
+        self.year()
+            .iter()
+            .map(|v| v.date())
+            .cloned()
+            .collect::<std::collections::BTreeSet<jiff::civil::Date>>()
+    }
 }
 
 impl TryFrom<&std::path::PathBuf> for Iip {
