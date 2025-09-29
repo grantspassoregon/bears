@@ -170,15 +170,15 @@ mod aocs;
 mod components;
 mod data;
 mod datasets;
+mod helpers;
 mod histories;
-mod iip;
 mod indicators;
 mod investments;
+mod key_sets;
 mod naics;
 mod parameter_values;
 mod parameters;
 mod queues;
-mod value_sets;
 mod values;
 
 pub use aocs::check_aoc_sta;
@@ -189,10 +189,11 @@ pub use data::{
     datasets_retry_load, debug_gdpbyindustry, download_history, next_mne_error,
 };
 pub use datasets::{check_datasets, datasets_from_file, datasets_to_json};
+pub use helpers::{difference, missing, params, unused};
 pub use histories::download_summary;
-pub use iip::iip_codes;
 pub use indicators::check_indicators;
 pub use investments::check_investments;
+pub use key_sets::{FixedAssetKeys, GdpKeys, IipKeys, IoKeys};
 pub use naics::{
     check_naics_category, check_naics_industry, check_naics_sectors, check_naics_subcategory,
     check_naics_subsectors,
@@ -203,10 +204,6 @@ pub use parameter_values::{
 };
 pub use parameters::{parameter_names, parameters_from_file, parameters_to_json};
 pub use queues::inspect_queues;
-pub use value_sets::{
-    GdpCodes, GdpKeys, check_fa_codes, check_fa_keys, check_gdp_codes, check_io_codes,
-    check_io_keys, fa_codes, fa_keys, gdp_codes, gdp_keys, get_fa_codes, io_codes, io_keys,
-};
 pub use values::{
     api_error, requests_exceeded, values_filtered, values_filtered_subset, values_gdp_filtered,
     values_ugdp_filtered,
