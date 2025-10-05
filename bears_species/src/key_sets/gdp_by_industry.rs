@@ -1,7 +1,7 @@
 use crate::{
-    BeaErr, BeaResponse, Data, Dataset, DatasetMissing, Frequencies, Frequency, Integer, IoError,
-    JsonParseError, KeyMissing, Naics, NotArray, NotObject, ParameterName, ParameterValueTable,
-    SerdeJson, Set, VariantMissing, Year, data::result_to_data, map_to_float, map_to_int,
+    BeaErr, BeaResponse, Currency, Data, Dataset, DatasetMissing, Frequencies, Frequency, Integer,
+    IoError, KeyMissing, Measure, Naics, NotArray, NotObject, ParameterName, ParameterValueTable,
+    Scale, SerdeJson, Set, VariantMissing, Year, data::result_to_data, map_to_float, map_to_int,
     map_to_string, parse_year, roman_numeral_quarter,
 };
 use strum::IntoEnumIterator;
@@ -302,7 +302,7 @@ impl Iterator for GdpTables<'_> {
     derive_getters::Getters,
 )]
 pub struct GdpDatum {
-    data_value: f64,
+    data_value: Currency,
     frequency: Frequency,
     industry_description: String,
     industry: Naics,
@@ -321,6 +321,9 @@ impl GdpDatum {
     pub fn read_json(m: &serde_json::Map<String, serde_json::Value>) -> Result<Self, BeaErr> {
         tracing::trace!("Reading MneDiDatum.");
         let data_value = map_to_float("DataValue", m)?;
+        let measure = Measure::Usd;
+        let scale = Scale::Million;
+        let data_value = Currency::from((data_value, scale, measure));
         tracing::trace!("Data Value: {data_value}.");
         let frequency = map_to_string("Frequency", m)?;
         let frequency = Frequency::from_value(&frequency)?;
@@ -352,7 +355,6 @@ impl GdpDatum {
                 Some(date)
             } else {
                 let error = KeyMissing::new("Quarter".to_owned(), line!(), file!().to_owned());
-                let error = JsonParseError::from(error);
                 return Err(error.into());
             }
         } else {
@@ -409,7 +411,7 @@ impl GdpDatum {
 pub struct GdpData(Vec<GdpDatum>);
 
 impl GdpData {
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn frequencies(&self) -> std::collections::BTreeSet<Frequency> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -418,7 +420,7 @@ impl GdpData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn industries(&self) -> std::collections::BTreeSet<Naics> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -427,7 +429,7 @@ impl GdpData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn industry_codes(&self) -> std::collections::BTreeMap<String, String> {
         let mut params = std::collections::BTreeMap::new();
         self.iter()
@@ -439,7 +441,20 @@ impl GdpData {
         params
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
+    pub fn quarters(&self) -> Option<std::collections::BTreeSet<jiff::civil::Date>> {
+        let mut set = std::collections::BTreeSet::new();
+        self.iter()
+            .map(|v| {
+                if let Some(quarter) = v.quarter() {
+                    set.insert(quarter.to_owned());
+                }
+            })
+            .for_each(drop);
+        if set.is_empty() { None } else { Some(set) }
+    }
+
+    #[tracing::instrument(skip_all)]
     pub fn table_ids(&self) -> std::collections::BTreeSet<i64> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -448,7 +463,7 @@ impl GdpData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn years(&self) -> std::collections::BTreeSet<jiff::civil::Date> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
