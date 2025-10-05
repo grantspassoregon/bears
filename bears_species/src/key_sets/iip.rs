@@ -1,7 +1,7 @@
 use crate::{
-    BeaErr, BeaResponse, Component, Data, Dataset, DatasetMissing, DeriveFromStr, Investment,
-    IoError, ItaFrequencies, ItaFrequency, Measure, NotArray, NotObject, ParameterName,
-    ParameterValueTable, SerdeJson, Set, VariantMissing, Year, date_by_period, map_to_int,
+    BeaErr, BeaResponse, Component, Currency, Data, Dataset, DatasetMissing, DeriveFromStr,
+    Investment, IoError, ItaFrequencies, ItaFrequency, Measure, NotArray, NotObject, ParameterName,
+    ParameterValueTable, Scale, SerdeJson, Set, VariantMissing, Year, date_by_period, map_to_int,
     map_to_string, parse_year,
 };
 use std::str::FromStr;
@@ -234,14 +234,14 @@ impl Iterator for IipInvestments<'_> {
 pub struct IipDatum {
     cl_unit: Measure,
     component: Component,
-    data_value: Option<i64>,
+    data_value: Option<Currency>,
     frequency: ItaFrequency,
     note_ref: Option<String>,
     time_period: jiff::civil::Date,
     time_series_description: String,
     time_series_id: String,
     type_of_investment: Investment,
-    unit_mult: Option<i64>,
+    unit_mult: Scale,
     year: jiff::civil::Date,
 }
 
@@ -256,13 +256,6 @@ impl IipDatum {
         let component = Component::from_str(&component)
             .map_err(|e| DeriveFromStr::new(component, e, line!(), file!().to_string()))?;
         tracing::trace!("component is {component}.");
-        let data_value = map_to_string("DataValue", m)?;
-        let data_value = if data_value.is_empty() {
-            None
-        } else {
-            Some(map_to_int("DataValue", m)?)
-        };
-        tracing::trace!("data_value is {data_value:?}.");
         let frequency = map_to_string("Frequency", m)?;
         let frequency = ItaFrequency::from_value(&frequency)?;
         tracing::trace!("frequency is {frequency}.");
@@ -285,14 +278,20 @@ impl IipDatum {
             .map_err(|e| DeriveFromStr::new(type_of_investment, e, line!(), file!().to_string()))?;
         tracing::trace!("type_of_investment is {type_of_investment}.");
         let unit_mult = map_to_int("UNIT_MULT", m)?;
-        let unit_mult = match unit_mult {
-            0 => None,
-            num => Some(num),
-        };
+        let unit_mult = Scale::from_key(unit_mult)?;
         tracing::trace!("unit_mult is {unit_mult:?}.");
         let year = map_to_string("Year", m)?;
         let year = parse_year(&year)?;
         tracing::trace!("year is {year}.");
+        let data_value = map_to_string("DataValue", m)?;
+        let data_value = if data_value.is_empty() {
+            None
+        } else {
+            let raw = map_to_int("DataValue", m)?;
+            let currency = Currency::from((raw, unit_mult, cl_unit));
+            Some(currency)
+        };
+        tracing::trace!("data_value is {data_value:?}.");
         Ok(Self {
             cl_unit,
             component,
@@ -412,7 +411,7 @@ impl IipData {
     }
 
     #[tracing::instrument]
-    pub fn unit_multipliers(&self) -> std::collections::BTreeSet<Option<i64>> {
+    pub fn unit_multipliers(&self) -> std::collections::BTreeSet<Scale> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
             .map(|v| set.insert(v.unit_mult().to_owned()))
