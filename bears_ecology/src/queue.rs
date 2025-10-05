@@ -155,6 +155,60 @@ impl Queue {
     }
 
     #[tracing::instrument(skip_all)]
+    pub async fn download_sync(&self, overwrite: Overwrite) -> Result<(), BeaErr> {
+        let tracker = std::sync::Arc::new(tokio::sync::Mutex::new(Tracker::default()));
+        // let (tx, mut rx) = tokio::sync::mpsc::channel(29);
+        for app in self.iter() {
+            let path = app.destination(false)?;
+            if !path.exists() || overwrite == Overwrite::Yes {
+                let event = Event::new(&path, Mode::Download);
+                let id = *event.id();
+                let mut slack;
+                let next_size = app.size_hint().unwrap_or(0);
+                let mut size_available;
+                {
+                    // Scoped to release lock before entering while loop
+                    let mut tracker = tracker.lock().await;
+                    slack = tracker.check_slack();
+                    size_available = tracker.size_available();
+                }
+                while slack == 0 || (size_available <= next_size && next_size < 100_000_000) {
+                    tracing::trace!("Limiting call rate.");
+                    {
+                        // Scoped to release lock before checking for slack
+                        let tracker = tracker.lock().await;
+                        tracker.wait().await;
+                    }
+                    {
+                        // Scoped to release lock before leaving the loop
+                        let mut tracker = tracker.lock().await;
+                        slack = tracker.check_slack();
+                        size_available = tracker.size_available();
+                        tracing::trace!("Size available: {size_available}");
+                    }
+                }
+                {
+                    let mut tracker = tracker.lock().await;
+                    tracker.calls.push(event);
+                }
+                let mut result = ResultStatus::Pass(id);
+                tracing::trace!("Calling download for {path:#?}");
+                if let Ok(status) = app.download(id).await {
+                    result = status;
+                } else {
+                    tracing::error!("Request failure.");
+                }
+                {
+                    let mut tracker = tracker.lock().await;
+                    tracker.update_status(result, Mode::Download);
+                    tracing::info!("Update: {result}.");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[tracing::instrument(skip_all)]
     pub async fn download(&self, overwrite: Overwrite) -> Result<(), BeaErr> {
         let tracker = std::sync::Arc::new(tokio::sync::Mutex::new(Tracker::default()));
         let (tx, mut rx) = tokio::sync::mpsc::channel(29);
