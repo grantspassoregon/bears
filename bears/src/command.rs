@@ -64,9 +64,9 @@ impl Action {
                         let queue = init_queue(dataset)?;
                         tracing::info!("Queue length: {}", queue.len());
                         if cli.overwrite {
-                            queue.download(Overwrite::Yes).await?;
+                            queue.download_sync(Overwrite::Yes).await?;
                         } else {
-                            queue.download(Overwrite::No).await?;
+                            queue.download_sync(Overwrite::No).await?;
                         }
                     }
                     tracing::info!("Datasets downloaded.");
@@ -90,10 +90,10 @@ impl Action {
                     let history = History::try_from((dataset, Mode::Load))?;
                     queue.errors(&history, bears_ecology::Scope::History)?;
                     if let Some(req) = queue.first() {
-                        tracing::info!("Loading first MNE error.");
+                        tracing::info!("Loading first error.");
                         req.load()?;
                     }
-                    tracing::info!("MNE file successfully loaded.");
+                    tracing::info!("File successfully loaded.");
                 } else {
                     tracing::warn!("Dataset parameter is missing, add '-d MyDataset' to args.");
                 }
