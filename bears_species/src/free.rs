@@ -97,7 +97,6 @@ pub fn json_str(json: &serde_json::Value) -> Result<String, JsonParseError> {
                     Ok(v) => Ok(v),
                     Err(e) => {
                         let error = FromStrError::new(s.to_string(), e);
-                        let error: JsonParseErrorKind = error.into();
                         Err(error.into())
                     }
                 }
@@ -154,7 +153,6 @@ pub fn json_float(json: &serde_json::Value) -> Result<f64, JsonParseError> {
                     line!(),
                     file!().to_string(),
                 );
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -165,7 +163,6 @@ pub fn json_float(json: &serde_json::Value) -> Result<f64, JsonParseError> {
                 Ok(num) => Ok(num),
                 Err(source) => {
                     let error = ParseFloat::new(s, source, line!(), file!().to_string());
-                    let error = JsonParseErrorKind::from(error);
                     Err(error.into())
                 }
             }
@@ -177,7 +174,6 @@ pub fn json_float(json: &serde_json::Value) -> Result<f64, JsonParseError> {
                 line!(),
                 file!().to_string(),
             );
-            let error = JsonParseErrorKind::from(error);
             Err(error.into())
         }
     }
@@ -199,7 +195,6 @@ pub fn json_int(json: &serde_json::Value) -> Result<i64, JsonParseError> {
                     line!(),
                     file!().to_string(),
                 );
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -209,7 +204,6 @@ pub fn json_int(json: &serde_json::Value) -> Result<i64, JsonParseError> {
                 Ok(num) => Ok(num),
                 Err(source) => {
                     let error = ParseInteger::new(s.into(), source, line!(), file!().to_string());
-                    let error = JsonParseErrorKind::from(error);
                     Err(error.into())
                 }
             }
@@ -221,7 +215,6 @@ pub fn json_int(json: &serde_json::Value) -> Result<i64, JsonParseError> {
                 line!(),
                 file!().to_string(),
             );
-            let error = JsonParseErrorKind::from(error);
             Err(error.into())
         }
     }
@@ -241,7 +234,6 @@ pub fn map_to_bool(
     } else {
         tracing::warn!("Key missing: {key}");
         let error = KeyMissing::new(key.to_string(), line!(), file!().to_string());
-        let error = JsonParseErrorKind::from(error);
         Err(error.into())
     }
 }
@@ -260,7 +252,6 @@ pub fn map_to_float(
     } else {
         tracing::warn!("Key missing: {key}");
         let error = KeyMissing::new(key.to_string(), line!(), file!().to_string());
-        let error = JsonParseErrorKind::from(error);
         Err(error.into())
     }
 }
@@ -279,7 +270,6 @@ pub fn map_to_int(
     } else {
         tracing::warn!("Key missing: {key}");
         let error = KeyMissing::new(key.to_string(), line!(), file!().to_string());
-        let error = JsonParseErrorKind::from(error);
         Err(error.into())
     }
 }
@@ -294,7 +284,6 @@ pub fn map_to_string(
         json_str(value)
     } else {
         let error = KeyMissing::new(key.to_string(), line!(), file!().to_string());
-        let error = JsonParseErrorKind::from(error);
         Err(error.into())
     }
 }

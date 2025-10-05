@@ -1,7 +1,7 @@
 use crate::{
-    AnnotationMissing, BoolInvalid, IntegerInvalid, Nom, NotFloat, NotInteger, NotParameterName,
-    NotQuarter, OwnershipInvalid, ParseFloat, ParseInteger, RowCodeMissing, UrlParseError,
-    YearInvalid,
+    AnnotationMissing, BadMetric, BadScale, BoolInvalid, IntegerInvalid, Nom, NotFloat, NotInteger,
+    NotParameterName, NotQuarter, OwnershipInvalid, ParseFloat, ParseInteger, RowCodeMissing,
+    UrlParseError, YearInvalid,
 };
 
 #[derive(Debug, derive_more::Deref, derive_more::DerefMut)]
@@ -46,6 +46,8 @@ macro_rules! impl_bea_err {
 
 impl_bea_err!(
     AnnotationMissing,
+    BadMetric,
+    BadScale,
     BoolInvalid,
     BTreeKeyMissing,
     Check,
@@ -96,6 +98,10 @@ impl_json_to_bea_err!(NotArray, NotObject, KeyMissing);
 pub enum BeaErrorKind {
     #[from(AnnotationMissing)]
     AnnotationMissing(AnnotationMissing),
+    #[from(BadMetric)]
+    BadMetric(BadMetric),
+    #[from(BadScale)]
+    BadScale(BadScale),
     #[from(BoolInvalid)]
     BoolInvalid(BoolInvalid),
     #[from(BTreeKeyMissing)]
@@ -152,6 +158,12 @@ impl std::fmt::Display for BeaErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::AnnotationMissing(e) => {
+                write!(f, "{e}")
+            }
+            Self::BadMetric(e) => {
+                write!(f, "{e}")
+            }
+            Self::BadScale(e) => {
                 write!(f, "{e}")
             }
             Self::BoolInvalid(e) => {
@@ -237,6 +249,8 @@ impl std::error::Error for BeaErrorKind {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::AnnotationMissing(e) => e.source(),
+            Self::BadMetric(e) => e.source(),
+            Self::BadScale(e) => e.source(),
             Self::BoolInvalid(e) => e.source(),
             Self::BTreeKeyMissing(e) => e.source(),
             Self::Check(e) => e.source(),
@@ -339,7 +353,18 @@ macro_rules! impl_json_parse_error {
     };
 }
 
-impl_json_parse_error!(KeyMissing, NotObject, NotArray);
+impl_json_parse_error!(
+    FromStrError,
+    KeyMissing,
+    NotArray,
+    NotFloat,
+    NotInteger,
+    NotObject,
+    NotParameterName,
+    NotQuarter,
+    ParseFloat,
+    ParseInteger,
+);
 
 #[derive(Debug, derive_new::new, derive_more::Deref, derive_more::DerefMut)]
 pub struct JsonParseError {

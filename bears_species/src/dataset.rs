@@ -1,4 +1,4 @@
-use crate::{BeaErr, JsonParseError, KeyMissing, NotObject, ParameterName, map_to_string};
+use crate::{BeaErr, KeyMissing, NotObject, ParameterName, map_to_string};
 use convert_case::Casing;
 use serde::{Deserialize, Serialize};
 
@@ -789,7 +789,6 @@ impl TryFrom<serde_json::Value> for DatasetDetails {
             _ => {
                 tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
@@ -844,14 +843,12 @@ impl TryFrom<serde_json::Value> for Datasets {
                 } else {
                     tracing::trace!("Unexpected content: {m:#?}");
                     let error = KeyMissing::new(key, line!(), file!().to_string());
-                    let error = JsonParseError::from(error);
                     Err(error.into())
                 }
             }
             _ => {
                 tracing::trace!("Wrong Value type: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
