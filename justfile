@@ -33,3 +33,16 @@ load_all:
   RUST_LOG=info cargo run --release -- -c load -d InputOutput
   RUST_LOG=info cargo run --release -- -c load -d Ita
   RUST_LOG=info cargo run --release -- -c load -d UnderlyingGdpByIndustry
+
+# Dataset downloading test suite.
+download_all:
+  RUST_LOG=info cargo run --release -- -c download -d FixedAssets -x
+  RUST_LOG=info cargo run --release -- -c download -d GdpByIndustry -x
+  # RUST_LOG=info cargo run --release -- -c download -d Mne -x
+  RUST_LOG=info cargo run --release -- -c download -d Nipa -x
+  RUST_LOG=info cargo run --release -- -c download -d NIUnderlyingDetail -x
+  RUST_LOG=info cargo run --release -- -c download -d Iip -x
+  RUST_LOG=info cargo run --release -- -c download -d InputOutput -x
+  RUST_LOG=info cargo run --release -- -c download -d Ita -x
+  RUST_LOG=info cargo run --release -- -c download -d UnderlyingGdpByIndustry -x
+  bash format_json.sh
