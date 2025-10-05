@@ -1,7 +1,8 @@
 use crate::{difference, params};
 use bears_ecology::initial_load;
 use bears_species::{
-    BeaErr, Data, Dataset, FixedAssetTable, FixedAssets, Measure, NipaRanges, ParameterName,
+    BeaErr, Data, Dataset, FixedAssetTable, FixedAssets, Measure, Metric, NipaRanges,
+    ParameterName, Scale,
 };
 use strum::IntoEnumIterator;
 
@@ -25,11 +26,11 @@ pub struct FixedAssetKeys {
     cl_units: std::collections::BTreeSet<Measure>,
     line_descriptions: std::collections::BTreeSet<String>,
     line_numbers: std::collections::BTreeSet<i64>,
-    metric_names: std::collections::BTreeSet<String>,
+    metric_names: std::collections::BTreeSet<Metric>,
     series_codes: std::collections::BTreeSet<String>,
     table_names: std::collections::BTreeSet<FixedAssetTable>,
     time_periods: std::collections::BTreeSet<jiff::civil::Date>,
-    unit_mults: std::collections::BTreeSet<i64>,
+    unit_mults: std::collections::BTreeSet<Scale>,
 }
 
 impl FixedAssetKeys {
