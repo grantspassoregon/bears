@@ -61,10 +61,10 @@ async fn values_filtered_subset() -> anyhow::Result<()> {
 #[tokio::test]
 #[cfg(feature = "api")]
 async fn values_gdp_filtered() -> anyhow::Result<()> {
-    // bears_health::values_gdp_filtered().await?;
-    // tracing::info!("Filtered values for GDP read.");
-    bears_health::values_ugdp_filtered().await?;
-    tracing::info!("Filtered values for Underlying GDP read.");
+    bears_health::values_gdp_filtered().await?;
+    tracing::info!("Filtered values for GDP read.");
+    // bears_health::values_ugdp_filtered().await?;
+    // tracing::info!("Filtered values for Underlying GDP read.");
     Ok(())
 }
 
