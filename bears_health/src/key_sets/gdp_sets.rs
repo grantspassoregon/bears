@@ -25,11 +25,23 @@ use strum::IntoEnumIterator;
 pub struct GdpKeys {
     frequencies: BTreeSet<Frequency>,
     industries: BTreeSet<Naics>,
+    quarters: Option<BTreeSet<jiff::civil::Date>>,
     tables: BTreeSet<i64>,
     years: BTreeSet<jiff::civil::Date>,
 }
 
 impl GdpKeys {
+    #[tracing::instrument(skip_all)]
+    pub fn append_quarters(
+        record: &mut Option<BTreeSet<jiff::civil::Date>>,
+        addition: &mut Option<BTreeSet<jiff::civil::Date>>,
+    ) {
+        if let Some(record) = record
+            && let Some(new) = addition
+        {
+            record.append(new);
+        }
+    }
     /// Retrieve the value sets from each struct field in the source data.
     #[tracing::instrument]
     fn expected<'a, P: AsRef<std::path::Path> + std::fmt::Debug>(
@@ -38,16 +50,29 @@ impl GdpKeys {
     ) -> Result<GdpKeys, BeaErr> {
         let path = path.as_ref().to_owned();
         match dataset {
-            Dataset::GDPbyIndustry | Dataset::UnderlyingGDPbyIndustry => {
+            Dataset::GDPbyIndustry => {
                 let data = GdpByIndustry::try_from((&path, dataset))?;
                 let freqs = GdpByIndustry::frequencies(dataset)
                     .iter()
                     .cloned()
                     .collect::<std::collections::BTreeSet<Frequency>>();
                 let industries = data.industries();
+                let quarters = None;
                 let tables = data.table_ids();
                 let years = data.years();
-                Ok(GdpKeys::new(freqs, industries, tables, years))
+                Ok(GdpKeys::new(freqs, industries, quarters, tables, years))
+            }
+            Dataset::UnderlyingGDPbyIndustry => {
+                let data = GdpByIndustry::try_from((&path, dataset))?;
+                let freqs = GdpByIndustry::frequencies(dataset)
+                    .iter()
+                    .cloned()
+                    .collect::<std::collections::BTreeSet<Frequency>>();
+                let industries = data.industries();
+                let quarters = None;
+                let tables = data.table_ids();
+                let years = data.years();
+                Ok(GdpKeys::new(freqs, industries, quarters, tables, years))
             }
             _ => {
                 tracing::error!(
@@ -115,6 +140,7 @@ impl GdpKeys {
         tracing::info!("{} datasets loaded.", data.len());
         let mut frequencies = BTreeSet::new();
         let mut industries = BTreeSet::new();
+        let mut quarters = Some(BTreeSet::new());
         let mut table_ids = BTreeSet::new();
         let mut years = BTreeSet::new();
         data.iter()
@@ -122,6 +148,7 @@ impl GdpKeys {
                 if let Data::Gdp(data) = v {
                     frequencies.append(&mut data.frequencies());
                     industries.append(&mut data.industries());
+                    GdpKeys::append_quarters(&mut quarters, &mut data.quarters());
                     table_ids.append(&mut data.table_ids());
                     years.append(&mut data.years());
                 }
@@ -135,7 +162,12 @@ impl GdpKeys {
             let error = Set::Empty;
             Err(error.into())
         } else {
-            let codes = GdpKeys::new(frequencies, industries, table_ids, years);
+            let quarters = if let Some(values) = &quarters {
+                if values.is_empty() { None } else { quarters }
+            } else {
+                None
+            };
+            let codes = GdpKeys::new(frequencies, industries, quarters, table_ids, years);
             Ok(codes)
         }
     }
@@ -154,6 +186,8 @@ impl GdpKeys {
         params(obs.frequencies(), path, dataset, name, kind)?;
         let name = ParameterName::IndustryCode;
         params(obs.industries(), path, dataset, name, kind)?;
+        let name = ParameterName::Quarter;
+        params(obs.quarters(), path, dataset, name, kind)?;
         let name = ParameterName::TableID;
         params(obs.tables(), path, dataset, name, kind)?;
         let name = ParameterName::Year;
