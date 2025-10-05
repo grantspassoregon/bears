@@ -1,6 +1,6 @@
 use crate::{
     BeaErr, Data, Dataset, DatasetMissing, Datasets, FixedAssetData, GdpData, IipData,
-    InputOutputData, ItaData, JsonParseError, KeyMissing, Method, MneDiData, NipaData, NotObject,
+    InputOutputData, ItaData, KeyMissing, Method, MneDiData, NipaData, NotObject, Notes,
     ParameterValues, Parameters, ParseInt, RequestParameters, map_to_string,
 };
 
@@ -179,7 +179,6 @@ impl Results {
             line!(),
             file!().to_string(),
         );
-        let error = JsonParseError::from(error);
         Err(error.into())
     }
 }
@@ -198,6 +197,7 @@ impl Results {
 pub struct Beaapi {
     request: RequestParameters,
     results: Results,
+    notes: Option<Notes>,
 }
 
 impl Beaapi {
@@ -208,18 +208,19 @@ impl Beaapi {
             RequestParameters::try_from(value)?
         } else {
             let error = KeyMissing::new(key, line!(), file!().to_string());
-            let error = JsonParseError::from(error);
             return Err(error.into());
         };
         let key = "Results".to_string();
-        let results = if let Some(value) = m.get(&key) {
-            Results::read_json(value, &request)?
+        let results;
+        let notes;
+        if let Some(value) = m.get(&key) {
+            results = Results::read_json(value, &request)?;
+            notes = Notes::try_from(value).ok();
         } else {
             let error = KeyMissing::new(key, line!(), file!().to_string());
-            let error = JsonParseError::from(error);
             return Err(error.into());
         };
-        let beaapi = Self::new(request, results);
+        let beaapi = Self::new(request, results, notes);
         Ok(beaapi)
     }
 }
@@ -236,7 +237,6 @@ impl TryFrom<&serde_json::Value> for Beaapi {
             _ => {
                 tracing::warn!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
@@ -302,14 +302,12 @@ impl TryFrom<&serde_json::Value> for BeaResponse {
                 } else {
                     tracing::trace!("Invalid Object: {m:#?}");
                     let error = KeyMissing::new(key, line!(), file!().to_string());
-                    let error = JsonParseError::from(error);
                     Err(error.into())
                 }
             }
             _ => {
                 tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
@@ -347,9 +345,7 @@ impl ApiError {
                     match str::parse::<i32>(&code) {
                         Ok(code) => Ok(Self::new(code, description)),
                         Err(source) => {
-                            let line = line!();
-                            let file = file!();
-                            let error = ParseInt::new(code, source, line, file.into());
+                            let error = ParseInt::new(code, source, line!(), file!().to_owned());
                             Err(error.into())
                         }
                     }
@@ -357,13 +353,11 @@ impl ApiError {
                 _ => {
                     // tracing::trace!("Invalid Value: {value:#?}");
                     let error = NotObject::new(line!(), file!().to_string());
-                    let error = JsonParseError::from(error);
                     Err(error.into())
                 }
             }
         } else {
             let error = KeyMissing::new(key, line!(), file!().to_string());
-            let error = JsonParseError::from(error);
             Err(error.into())
         }
     }
@@ -378,7 +372,6 @@ impl TryFrom<&serde_json::Value> for ApiError {
             _ => {
                 // tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
@@ -416,9 +409,7 @@ impl MneError {
                     match str::parse::<i32>(&number) {
                         Ok(number) => Ok(Self::new(number, error)),
                         Err(source) => {
-                            let line = line!();
-                            let file = file!();
-                            let error = ParseInt::new(number, source, line, file.into());
+                            let error = ParseInt::new(number, source, line!(), file!().to_owned());
                             Err(error.into())
                         }
                     }
@@ -437,20 +428,17 @@ impl MneError {
                         }
                     } else {
                         let error = NotObject::new(line!(), file!().to_string());
-                        let error = JsonParseError::from(error);
                         Err(error.into())
                     }
                 }
                 _ => {
                     tracing::trace!("Invalid Value: {value:#?}");
                     let error = NotObject::new(line!(), file!().to_string());
-                    let error = JsonParseError::from(error);
                     Err(error.into())
                 }
             }
         } else {
             let error = KeyMissing::new(key, line!(), file!().to_string());
-            let error = JsonParseError::from(error);
             Err(error.into())
         }
     }
@@ -465,7 +453,6 @@ impl TryFrom<&serde_json::Value> for MneError {
             _ => {
                 // tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
@@ -503,9 +490,7 @@ impl RequestsExceeded {
                     match str::parse::<i32>(&code) {
                         Ok(code) => Ok(Self::new(code, description)),
                         Err(source) => {
-                            let line = line!();
-                            let file = file!();
-                            let error = ParseInt::new(code, source, line, file.into());
+                            let error = ParseInt::new(code, source, line!(), file!().to_owned());
                             Err(error.into())
                         }
                     }
@@ -513,13 +498,11 @@ impl RequestsExceeded {
                 _ => {
                     tracing::trace!("Invalid Value: {value:#?}");
                     let error = NotObject::new(line!(), file!().to_string());
-                    let error = JsonParseError::from(error);
                     Err(error.into())
                 }
             }
         } else {
             let error = KeyMissing::new(key, line!(), file!().to_string());
-            let error = JsonParseError::from(error);
             Err(error.into())
         }
     }
@@ -534,7 +517,6 @@ impl TryFrom<&serde_json::Value> for RequestsExceeded {
             _ => {
                 // tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
