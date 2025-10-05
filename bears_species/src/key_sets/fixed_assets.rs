@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use crate::{
-    BeaErr, BeaResponse, Data, Dataset, DatasetMissing, DeriveFromStr, FixedAssetTable, IoError,
-    Measure, NipaRange, NipaRanges, NotArray, NotObject, ParameterName, ParameterValueTable,
-    ParameterValueTableVariant, SerdeJson, Set, VariantMissing, date_by_period, map_to_float,
-    map_to_int, map_to_string, result_to_data,
+    BeaErr, BeaResponse, Currency, Data, Dataset, DatasetMissing, DeriveFromStr, FixedAssetTable,
+    IoError, Measure, Metric, NipaRange, NipaRanges, NotArray, NotObject, ParameterName,
+    ParameterValueTable, ParameterValueTableVariant, Scale, SerdeJson, Set, VariantMissing,
+    date_by_period, map_to_float, map_to_int, map_to_string, result_to_data,
 };
 
 #[derive(
@@ -28,22 +28,6 @@ impl FixedAssets {
     pub fn iter_tables(&self) -> FixedAssetsTables<'_> {
         FixedAssetsTables::new(self)
     }
-
-    // pub fn queue() -> Result<Queue, BeaErr> {
-    //     let req = Request::Data;
-    //     let mut app = req.init()?;
-    //     let dataset = Dataset::FixedAssets;
-    //     app.with_dataset(dataset);
-    //     dotenvy::dotenv().ok();
-    //     let path = bea_data()?;
-    //     let data = FixedAssets::try_from(&path)?;
-    //     let mut queue = Vec::new();
-    //     for params in data.iter() {
-    //         app.with_params(params.clone());
-    //         queue.push(app.clone());
-    //     }
-    //     Ok(Queue::new(queue))
-    // }
 }
 
 impl TryFrom<&std::path::PathBuf> for FixedAssets {
@@ -163,14 +147,14 @@ impl Iterator for FixedAssetsTables<'_> {
 )]
 pub struct FixedAssetDatum {
     cl_unit: Measure,
-    data_value: f64,
+    data_value: Currency,
     line_description: String,
     line_number: i64,
-    metric_name: String,
+    metric_name: Metric,
     series_code: String,
     table_name: FixedAssetTable,
     time_period: jiff::civil::Date,
-    unit_mult: Option<i64>,
+    unit_mult: Scale,
 }
 
 impl FixedAssetDatum {
@@ -182,6 +166,7 @@ impl FixedAssetDatum {
         let line_description = map_to_string("LineDescription", m)?;
         let line_number = map_to_int("LineNumber", m)?;
         let metric_name = map_to_string("METRIC_NAME", m)?;
+        let metric_name = Metric::from_key(&metric_name)?;
         let series_code = map_to_string("SeriesCode", m)?;
         let table_name = map_to_string("TableName", m)?;
         let table_name = FixedAssetTable::from_str(&table_name)
@@ -189,10 +174,8 @@ impl FixedAssetDatum {
         let time_period = map_to_string("TimePeriod", m)?;
         let time_period = date_by_period(&time_period)?;
         let unit_mult = map_to_int("UNIT_MULT", m)?;
-        let unit_mult = match unit_mult {
-            0 => None,
-            num => Some(num),
-        };
+        let unit_mult = Scale::from_key(unit_mult)?;
+        let data_value = Currency::from((data_value, unit_mult, cl_unit));
         Ok(Self {
             cl_unit,
             data_value,
@@ -269,7 +252,7 @@ impl FixedAssetData {
     }
 
     #[tracing::instrument]
-    pub fn metric_names(&self) -> std::collections::BTreeSet<String> {
+    pub fn metric_names(&self) -> std::collections::BTreeSet<Metric> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
             .map(|v| set.insert(v.metric_name().to_owned()))
@@ -305,14 +288,10 @@ impl FixedAssetData {
     }
 
     #[tracing::instrument]
-    pub fn unit_mults(&self) -> std::collections::BTreeSet<i64> {
+    pub fn unit_mults(&self) -> std::collections::BTreeSet<Scale> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
-            .map(|v| {
-                if let Some(value) = v.unit_mult() {
-                    set.insert(*value);
-                }
-            })
+            .map(|v| set.insert(*v.unit_mult()))
             .for_each(drop);
         set
     }
