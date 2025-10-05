@@ -1,6 +1,7 @@
 use crate::{
-    BeaErr, BeaResponse, Dataset, InputOutputCode, InputOutputTable, IoError, Naics, NotArray,
-    NotObject, ParameterName, SerdeJson, Set, Year, map_to_float, map_to_string, parse_year,
+    BeaErr, BeaResponse, Currency, Dataset, InputOutputCode, InputOutputTable, IoError, Naics,
+    NotArray, NotObject, ParameterName, SerdeJson, Set, Year, map_to_float, map_to_string,
+    parse_year,
 };
 
 #[derive(
@@ -149,7 +150,7 @@ pub struct InputOutputDatum {
     column_code: InputOutputCode,
     column_description: String,
     column_type: String,
-    data_value: f64,
+    data_value: Option<Currency>,
     note_ref: Option<String>,
     row_code: InputOutputCode,
     row_description: String,
@@ -168,8 +169,8 @@ impl InputOutputDatum {
         tracing::trace!("column_description is {column_description}.");
         let column_type = map_to_string("ColType", m)?;
         tracing::trace!("column_type is {column_type}.");
-        let data_value = map_to_float("DataValue", m)?;
-        tracing::trace!("data_value is {data_value}.");
+        let data_value = map_to_float("DataValue", m).ok();
+        tracing::trace!("data_value is {data_value:?}.");
         let note_ref = map_to_string("NoteRef", m)?;
         let note_ref = if note_ref.is_empty() {
             None
@@ -189,6 +190,13 @@ impl InputOutputDatum {
         tracing::trace!("table_id is {table_id}.");
         let year = map_to_string("Year", m)?;
         let year = parse_year(&year)?;
+        let data_value = if let Some(value) = &data_value {
+            let measure = table_id.measure();
+            let scale = table_id.scale();
+            Some(Currency::from((*value, scale, measure)))
+        } else {
+            None
+        };
         Ok(Self {
             column_code,
             column_description,
