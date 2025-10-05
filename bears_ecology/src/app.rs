@@ -1,8 +1,8 @@
 use crate::{Options, ParameterKind, bea_data};
 use bears_species::{
     BTreeKeyMissing, BeaErr, BeaResponse, Dataset, DeriveFromStr, IoError, JsonParseError,
-    JsonParseErrorKind, KeyMissing, Method, MillionsOptions, ParameterName, RateLimit,
-    ReqwestError, Results, SerdeJson, VariantMissing,
+    KeyMissing, Method, MillionsOptions, ParameterName, RateLimit, ReqwestError, Results,
+    SerdeJson, VariantMissing,
 };
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -337,8 +337,6 @@ impl App {
                                         line!(),
                                         file!().to_string(),
                                     );
-                                    let error = JsonParseErrorKind::from(error);
-                                    let error = JsonParseError::from(error);
                                     return Err(error.into());
                                 }
                             };
@@ -397,7 +395,7 @@ impl App {
                     }
                     Dataset::Iip => {
                         // let component = query["Component"].clone();
-                        let name = ParameterName::Investment;
+                        let name = ParameterName::TypeOfInvestment;
                         let toi = query[&name.to_string()].clone();
                         Ok(path.join(format!("IIP_{toi}.json")))
                     }

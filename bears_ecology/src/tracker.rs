@@ -1,8 +1,5 @@
 use crate::{Mode, ResultStatus};
-use bears_species::{
-    BeaErr, DeriveFromStr, Jiff, JsonParseError, JsonParseErrorKind, KeyMissing, NotObject,
-    ParseInt, map_to_string,
-};
+use bears_species::{BeaErr, DeriveFromStr, Jiff, KeyMissing, NotObject, ParseInt, map_to_string};
 use jiff::ToSpan;
 use std::str::FromStr;
 
@@ -287,8 +284,6 @@ impl Event {
         let id = uuid::Uuid::new_v4();
         if result.len() < 7 {
             let error = KeyMissing::new("invalid Event".to_string(), line!(), file!().to_string());
-            let error = JsonParseErrorKind::from(error);
-            let error = JsonParseError::from(error);
             Err(error.into())
         } else {
             let length = Self::len_from_str(result[0].trim())?;
@@ -336,23 +331,17 @@ impl TryFrom<&serde_json::Value> for Event {
                         _ => {
                             tracing::trace!("Invalid Value: {value:#?}");
                             let error = NotObject::new(line!(), file!().to_string());
-                            let error = JsonParseErrorKind::from(error);
-                            let error = JsonParseError::from(error);
                             Err(error.into())
                         }
                     }
                 } else {
                     let error = KeyMissing::new(key, line!(), file!().to_string());
-                    let error = JsonParseErrorKind::from(error);
-                    let error = JsonParseError::from(error);
                     Err(error.into())
                 }
             }
             _ => {
                 tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
