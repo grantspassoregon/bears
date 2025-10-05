@@ -1,6 +1,6 @@
 use crate::{
-    BeaErr, KeyMissing, ParameterFields, ParameterName, ParameterValueTable,
-    ParameterValueTableVariant, ParseInt,
+    BeaErr, KeyMissing, Measure, ParameterFields, ParameterName, ParameterValueTable,
+    ParameterValueTableVariant, ParseInt, Scale,
 };
 
 /// Represents different types of input-output tables in an economic analysis framework.
@@ -125,6 +125,7 @@ impl InputOutputTable {
     ///
     /// Returns a `ParseInt` error if the string cannot be parsed as i64.
     /// Returns a `KeyMissing` error if the parsed integer does not match any known key.
+    #[tracing::instrument]
     pub fn from_key(key: &str) -> Result<Self, BeaErr> {
         let result = match key
             .parse::<i64>()
@@ -143,6 +144,83 @@ impl InputOutputTable {
             _ => return Err(KeyMissing::new(key.to_owned(), line!(), file!().to_owned()).into()),
         };
         Ok(result)
+    }
+
+    /// Returns the [`Measure`] for the table's data values.
+    ///
+    /// Input-Output tables contain two distinct types of data:
+    /// - Requirements tables contain coefficients (ratios) showing the amount of input
+    ///   required per dollar of output
+    /// - Supply and Use tables contain actual dollar values measured in millions
+    ///
+    /// # Returns
+    ///
+    /// * `Measure::Level` - For requirements tables that contain dimensionless ratios/coefficients
+    /// * `Measure::Usd` - For supply and use tables that contain dollar values in millions (UNIT_MULT = 6)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bears_species::{InputOutputTable, Measure};
+    ///
+    /// let table = InputOutputTable::CommodityTotalRequirementsSummary;
+    /// assert_eq!(table.measure(), Measure::Level); // Requirements = ratios
+    ///
+    /// let table = InputOutputTable::DomesticSupplySummary;
+    /// assert_eq!(table.measure(), Measure::Usd); // Supply = millions of dollars
+    /// ```
+    #[tracing::instrument(skip_all)]
+    pub fn measure(&self) -> Measure {
+        match self {
+            Self::CommodityTotalRequirementsSummary
+            | Self::CommodityTotalRequirementsSector
+            | Self::IndustryByCommodityRequirementsSummary
+            | Self::IndustryByCommodityRequirementsSector
+            | Self::IndustryTotalRequirementsSummary
+            | Self::IndustryTotalRequirementsSector => Measure::Usd,
+            Self::DomesticSupplySummary
+            | Self::DomesticSupplySector
+            | Self::CommodityUseSummary
+            | Self::CommodityUseSector => Measure::Level,
+        }
+    }
+
+    /// Returns the [`Scale`] (unit multiplier) for the table's data values.
+    ///
+    /// The scale indicates the factor (power of 10) applied to raw data values for interpretation.
+    /// Input-Output tables use different scales depending on whether they contain dollar values
+    /// or dimensionless ratios.
+    ///
+    /// # Returns
+    ///
+    /// * `Scale::Unit` - For requirements tables containing ratios/coefficients (no multiplier, UNIT_MULT = 0)
+    /// * `Scale::Million` - For supply and use tables containing dollar values in millions (UNIT_MULT = 6)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bears_species::{InputOutputTable, Scale};
+    ///
+    /// let table = InputOutputTable::CommodityTotalRequirementsSummary;
+    /// assert_eq!(table.scale(), Scale::Unit); // Requirements = no multiplier
+    ///
+    /// let table = InputOutputTable::DomesticSupplySummary;
+    /// assert_eq!(table.scale(), Scale::Million); // Supply = millions of dollars
+    /// ```
+    #[tracing::instrument(skip_all)]
+    pub fn scale(&self) -> Scale {
+        match self {
+            Self::CommodityTotalRequirementsSummary
+            | Self::CommodityTotalRequirementsSector
+            | Self::IndustryByCommodityRequirementsSummary
+            | Self::IndustryByCommodityRequirementsSector
+            | Self::IndustryTotalRequirementsSummary
+            | Self::IndustryTotalRequirementsSector => Scale::Million,
+            Self::DomesticSupplySummary
+            | Self::DomesticSupplySector
+            | Self::CommodityUseSummary
+            | Self::CommodityUseSector => Scale::Unit,
+        }
     }
 }
 
