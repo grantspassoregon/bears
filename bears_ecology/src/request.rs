@@ -146,7 +146,11 @@ pub fn init_queue(dataset: Dataset) -> Result<Queue, BeaErr> {
         }
     }
 
-    Ok(Queue::new(queue))
+    // Shuffle order so large downloads are less likely to be back to back.
+    let mut queue = Queue::new(queue);
+    queue.seeded_shuffle(10101);
+
+    Ok(queue)
 }
 
 /// Download the BEA dataset parameter values into the `BEA_DATA` directory.
