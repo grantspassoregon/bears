@@ -5,6 +5,7 @@ mod free;
 mod key_sets;
 mod keys;
 mod method;
+mod notes;
 mod parameter;
 mod parameter_value;
 mod request;
@@ -32,18 +33,20 @@ pub use key_sets::{
 };
 pub use keys::{
     AffiliateKind, AffiliateLevel, Affiliation, AnnotatedInteger, Annotation, AnnotationMissing,
-    AocSta, AreaOrCountry, BoolInvalid, BoolOptions, Channel, Classification, Component,
-    DirectionKind, DirectionOfInvestment, FixedAssetTable, Footnotes, Frequencies, Frequency,
-    FrequencyOptions, IipIndustry, Indicator, InputOutputCode, InputOutputTable, Integer,
-    IntegerInvalid, IntegerKind, IntegerOptions, Investment, ItaFrequencies, ItaFrequency, Measure,
-    Millions, MillionsOptions, Naics, NaicsCategory, NaicsIndustry, NaicsInputOutput, NaicsItem,
-    NaicsItems, NaicsSector, NaicsSubcategory, NaicsSubsector, NaicsSupplement, NipaRange,
-    NipaRangeIterator, NipaRanges, NipaTableName, Nom, NotQuarter, OwnershipInvalid, OwnershipKind,
-    OwnershipLevel, RowCode, RowCodeMissing, SelectionKind, SelectionSet, Service, State,
-    StateKind, TableName, TradeDirection, Year, YearInvalid, YearKind, YearOptions, YearRange,
-    date_by_period, parse_year, roman_numeral_quarter,
+    AocSta, AreaOrCountry, BadMetric, BadScale, BoolInvalid, BoolOptions, Channel, Classification,
+    Component, Currency, DirectionKind, DirectionOfInvestment, FixedAssetTable, Footnotes,
+    Frequencies, Frequency, FrequencyOptions, IipIndustry, Indicator, InputOutputCode,
+    InputOutputTable, Integer, IntegerInvalid, IntegerKind, IntegerOptions, Investment,
+    ItaFrequencies, ItaFrequency, Measure, Metric, Millions, MillionsOptions, Naics, NaicsCategory,
+    NaicsIndustry, NaicsInputOutput, NaicsItem, NaicsItems, NaicsSector, NaicsSubcategory,
+    NaicsSubsector, NaicsSupplement, NipaRange, NipaRangeIterator, NipaRanges, NipaTableName, Nom,
+    NotQuarter, OwnershipInvalid, OwnershipKind, OwnershipLevel, RowCode, RowCodeMissing, Scale,
+    SelectionKind, SelectionSet, Service, State, StateKind, TableName, TradeDirection, ValueKind,
+    Year, YearInvalid, YearKind, YearOptions, YearRange, date_by_period, parse_year,
+    roman_numeral_quarter,
 };
 pub use method::Method;
+pub use notes::{Note, Notes};
 pub use parameter::{NotParameterName, Parameter, ParameterName, Parameters, deserialize_bool};
 pub use parameter_value::{
     Metadata, MneDoi, NipaFrequency, NipaShowMillions, NipaTable, NipaYear, ParameterFields,
