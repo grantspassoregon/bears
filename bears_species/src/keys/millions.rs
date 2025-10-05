@@ -1,6 +1,6 @@
 use crate::{
-    BeaErr, JsonParseError, JsonParseErrorKind, KeyMissing, NipaShowMillions, ParameterName,
-    ParameterValueTable, ParameterValueTableVariant, VariantMissing,
+    BeaErr, JsonParseError, KeyMissing, NipaShowMillions, ParameterName, ParameterValueTable,
+    ParameterValueTableVariant, VariantMissing,
 };
 
 #[derive(
@@ -96,7 +96,6 @@ impl MillionsOptions {
             "N" => Ok(Self::No),
             _ => {
                 let error = KeyMissing::new(value.into(), line!(), file!().into());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }

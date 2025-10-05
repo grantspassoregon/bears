@@ -71,8 +71,6 @@ impl RequestParameter {
                 line!(),
                 file!().to_string(),
             );
-            let error = JsonParseErrorKind::from(error);
-            let error = JsonParseError::from(error);
             Err(error.into())
         }
     }
@@ -94,8 +92,6 @@ impl RequestParameter {
             }
         } else {
             let error = KeyMissing::new(key, line!(), file!().to_string());
-            let error = JsonParseErrorKind::from(error);
-            let error = JsonParseError::from(error);
             Err(error.into())
         }
     }
@@ -117,8 +113,6 @@ impl RequestParameter {
             }
         } else {
             let error = KeyMissing::new(key, line!(), file!().to_string());
-            let error = JsonParseErrorKind::from(error);
-            let error = JsonParseError::from(error);
             Err(error.into())
         }
     }
@@ -144,7 +138,6 @@ impl TryFrom<serde_json::Value> for RequestParameter {
             _ => {
                 tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -277,14 +270,12 @@ impl TryFrom<&serde_json::Value> for RequestParameters {
                 } else {
                     tracing::trace!("Unexpected content: {m:#?}");
                     let error = KeyMissing::new(key, line!(), file!().to_string());
-                    let error = JsonParseErrorKind::from(error);
                     Err(error.into())
                 }
             }
             _ => {
                 tracing::warn!("Wrong Value type: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }

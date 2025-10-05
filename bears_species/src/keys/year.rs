@@ -1,6 +1,6 @@
 use crate::{
-    BeaErr, Frequency, JsonParseError, JsonParseErrorKind, MneDoi, NipaYear, ParameterFields,
-    ParameterValueTable, ParameterValueTableVariant, ParseInt,
+    BeaErr, Frequency, MneDoi, NipaYear, ParameterFields, ParameterValueTable,
+    ParameterValueTableVariant, ParseInt,
 };
 
 #[derive(
@@ -94,8 +94,6 @@ pub fn date_by_quarter(input: &str) -> Option<jiff::civil::Date> {
                         line!(),
                         file!().to_string(),
                     );
-                    let error = JsonParseErrorKind::from(error);
-                    let error = JsonParseError::from(error);
                     tracing::error!("{error}");
                     None
                 }

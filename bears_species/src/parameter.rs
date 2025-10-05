@@ -71,7 +71,6 @@ impl TryFrom<serde_json::Value> for Parameter {
             _ => {
                 tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -129,21 +128,18 @@ impl TryFrom<&serde_json::Value> for Parameters {
                         _ => {
                             tracing::trace!("Unexpected content: {m:#?}");
                             let error = NotArray::new(line!(), file!().to_string());
-                            let error = JsonParseErrorKind::from(error);
                             Err(error.into())
                         }
                     }
                 } else {
                     tracing::trace!("Parameter missing.");
                     let error = KeyMissing::new(key, line!(), file!().to_string());
-                    let error = JsonParseErrorKind::from(error);
                     Err(error.into())
                 }
             }
             _ => {
                 tracing::trace!("Wrong Value type: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -222,8 +218,12 @@ pub enum ParameterName {
     LineNumber,
     MetricName,
     NonbankAffiliatesOnly,
+    NoteRef,
+    Notes,
+    NoteText,
     OwnershipLevel,
     ParentInvestment,
+    Quarter,
     RowCode,
     RowType,
     SeriesCode,
@@ -253,7 +253,6 @@ impl ParameterName {
                 Ok(v) => name = v,
                 Err(e) => {
                     let error = FromStrError::new(name, e);
-                    let error: JsonParseErrorKind = error.into();
                     return Err(error.into());
                 }
             }
@@ -265,7 +264,6 @@ impl ParameterName {
         } else {
             tracing::trace!("Paramater Variant missing.");
             let error = NotParameterName::new(name, line!(), file!().to_owned());
-            let error: JsonParseErrorKind = error.into();
             Err(error.into())
         }
     }
@@ -285,7 +283,6 @@ impl ParameterName {
             Ok(name)
         } else {
             let error = KeyMissing::new(key.to_string(), line!(), file!().to_string());
-            let error = JsonParseErrorKind::from(error);
             Err(error.into())
         }
     }

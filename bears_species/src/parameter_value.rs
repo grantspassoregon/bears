@@ -1,6 +1,6 @@
 use crate::{
-    BeaErr, Dataset, DeriveFromStr, Jiff, JsonParseError, JsonParseErrorKind, KeyMissing, NotArray,
-    NotObject, map_to_string,
+    BeaErr, Dataset, DeriveFromStr, Jiff, JsonParseError, KeyMissing, NotArray, NotObject,
+    map_to_string,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -88,7 +88,6 @@ impl TryFrom<serde_json::Value> for NipaFrequency {
             _ => {
                 tracing::warn!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -142,7 +141,6 @@ impl TryFrom<serde_json::Value> for NipaShowMillions {
             _ => {
                 tracing::warn!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -195,7 +193,6 @@ impl TryFrom<serde_json::Value> for NipaTable {
             _ => {
                 tracing::warn!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -247,7 +244,6 @@ impl TryFrom<serde_json::Value> for NipaTableNumber {
             _ => {
                 tracing::warn!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -332,7 +328,6 @@ impl TryFrom<serde_json::Value> for NipaYear {
             _ => {
                 tracing::warn!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -382,7 +377,6 @@ impl TryFrom<serde_json::Value> for MneDoi {
             _ => {
                 tracing::warn!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -470,8 +464,6 @@ impl TryFrom<serde_json::Value> for Metadata {
             _ => {
                 tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
-                let error = JsonParseError::from(error);
                 Err(error.into())
             }
         }
@@ -532,7 +524,6 @@ impl TryFrom<serde_json::Value> for ParameterFields {
             _ => {
                 tracing::trace!("Invalid Value: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }
@@ -625,7 +616,6 @@ impl ParameterValueTable {
             line!(),
             file!().to_string(),
         );
-        let error = JsonParseErrorKind::from(error);
         Err(error.into())
     }
 
@@ -684,21 +674,18 @@ impl TryFrom<&serde_json::Value> for ParameterValues {
                         _ => {
                             tracing::trace!("Unexpected content: {m:#?}");
                             let error = NotArray::new(line!(), file!().to_string());
-                            let error = JsonParseErrorKind::from(error);
                             Err(error.into())
                         }
                     }
                 } else {
                     tracing::trace!("Parameter Value Table missing.");
                     let error = KeyMissing::new(key, line!(), file!().to_string());
-                    let error = JsonParseErrorKind::from(error);
                     Err(error.into())
                 }
             }
             _ => {
                 // tracing::trace!("Wrong Value type: {value:#?}");
                 let error = NotObject::new(line!(), file!().to_string());
-                let error = JsonParseErrorKind::from(error);
                 Err(error.into())
             }
         }

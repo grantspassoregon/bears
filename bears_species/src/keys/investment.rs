@@ -2004,7 +2004,7 @@ impl Investment {
     /// name in BEA API calls. The `params` method formats the parameter name as a key, as the
     /// variant name as the value for use in building complex API queries.
     pub fn params(&self) -> (String, String) {
-        let key = ParameterName::Investment.to_string();
+        let key = ParameterName::TypeOfInvestment.to_string();
         let value = self.to_string();
         (key, value)
     }
