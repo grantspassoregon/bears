@@ -1,7 +1,7 @@
 use crate::{difference, params};
 use bears_ecology::initial_load;
 use bears_species::{
-    BeaErr, Component, Data, Dataset, Iip, Investment, ItaFrequency, Measure, ParameterName,
+    BeaErr, Component, Data, Dataset, Iip, Investment, ItaFrequency, Measure, ParameterName, Scale,
 };
 use std::collections::BTreeSet;
 use strum::IntoEnumIterator;
@@ -30,7 +30,7 @@ pub struct IipKeys {
     time_periods: BTreeSet<jiff::civil::Date>,
     time_series_codes: std::collections::BTreeMap<String, String>,
     investments: BTreeSet<Investment>,
-    unit_multipliers: BTreeSet<Option<i64>>,
+    unit_multipliers: BTreeSet<Scale>,
     years: BTreeSet<jiff::civil::Date>,
 }
 
