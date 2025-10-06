@@ -1,7 +1,7 @@
 use crate::{
     BeaErr, BeaResponse, Currency, Dataset, InputOutputCode, InputOutputTable, IoError, Naics,
-    NotArray, NotObject, ParameterName, SerdeJson, Set, Year, map_to_float, map_to_string,
-    parse_year,
+    NotArray, NotObject, Note, Notes, ParameterName, SerdeJson, Set, Year, map_to_float,
+    map_to_string, parse_year,
 };
 
 #[derive(
@@ -233,14 +233,18 @@ impl InputOutputDatum {
     PartialOrd,
     serde::Deserialize,
     serde::Serialize,
+    derive_new::new,
     derive_more::Deref,
     derive_more::DerefMut,
     derive_more::AsRef,
     derive_more::AsMut,
-    derive_more::From,
 )]
-#[from(Vec<InputOutputDatum>)]
-pub struct InputOutputData(Vec<InputOutputDatum>);
+pub struct InputOutputData {
+    #[deref]
+    #[deref_mut]
+    data: Vec<InputOutputDatum>,
+    notes: Option<Notes>,
+}
 
 impl InputOutputData {
     #[tracing::instrument]
@@ -257,6 +261,11 @@ impl InputOutputData {
             .map(|v| set.insert(v.column_type().to_owned()))
             .for_each(drop);
         set
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn notes(&self) -> Option<std::collections::BTreeSet<Note>> {
+        self.notes.as_ref().map(|v| v.set())
     }
 
     #[tracing::instrument]
@@ -314,7 +323,8 @@ impl TryFrom<&serde_json::Value> for InputOutputData {
                     }
                 }
                 tracing::trace!("Data found: {} records.", data.len());
-                Ok(Self(data))
+                let notes = Notes::try_from(value).ok();
+                Ok(Self::new(data, notes))
             }
             _ => {
                 let error = NotArray::new(line!(), file!().to_string());
