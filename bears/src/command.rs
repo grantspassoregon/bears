@@ -45,6 +45,7 @@ impl Cli {
 pub enum Action {
     Load,
     Download,
+    Next,
     NextError,
     Queue,
 }
@@ -79,6 +80,22 @@ impl Action {
                     tracing::info!("Loading {dataset}.");
                     let result = initial_load(dataset, None).await?;
                     tracing::info!("{} datasets loaded.", result.len());
+                } else {
+                    tracing::warn!("Dataset parameter is missing, add '-d MyDataset' to args.");
+                }
+            }
+            Self::Next => {
+                if let Some(dataset) = cli.dataset {
+                    let queue = init_queue(dataset)?;
+                    tracing::info!("Queue for {dataset}: {}", queue.len());
+                    if let Some(req) = queue.first() {
+                        tracing::info!(
+                            "Loading response for {}.",
+                            req.destination(false)?.display()
+                        );
+                        req.load()?;
+                    }
+                    tracing::info!("File successfully loaded for {dataset}.");
                 } else {
                     tracing::warn!("Dataset parameter is missing, add '-d MyDataset' to args.");
                 }
