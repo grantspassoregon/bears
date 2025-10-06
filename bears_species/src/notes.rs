@@ -69,10 +69,14 @@ pub struct Notes(Vec<Note>);
 
 impl Notes {
     #[tracing::instrument(skip_all)]
-    pub fn set(&self) -> std::collections::BTreeSet<&Note> {
-        self.iter().collect()
+    pub fn set(&self) -> std::collections::BTreeSet<Note> {
+        self.iter().cloned().collect()
     }
 
+    /// Returns the contents of the Notes object in a BEA response as a [`serde_json::Value`], used
+    /// as an intermediate step to deserialize response data into Self.  If you are trying to read
+    /// response data into `Notes`, use the impl `TryFrom` for `serde_json::Value`, which
+    /// calls this function internally.
     #[tracing::instrument(skip_all)]
     pub fn try_from_results(result: &serde_json::Value) -> Result<&serde_json::Value, BeaErr> {
         tracing::trace!("Reading notes from results.");
