@@ -1,8 +1,8 @@
 use crate::{
     BeaErr, BeaResponse, Component, Currency, Data, Dataset, DatasetMissing, DeriveFromStr,
-    Investment, IoError, ItaFrequencies, ItaFrequency, Measure, NotArray, NotObject, ParameterName,
-    ParameterValueTable, Scale, SerdeJson, Set, VariantMissing, Year, date_by_period, map_to_int,
-    map_to_string, parse_year,
+    Investment, IoError, ItaFrequencies, ItaFrequency, Measure, NotArray, NotObject, Note, Notes,
+    ParameterName, ParameterValueTable, Scale, SerdeJson, Set, VariantMissing, Year,
+    date_by_period, map_to_int, map_to_string, parse_year,
 };
 use std::str::FromStr;
 
@@ -343,12 +343,18 @@ impl TryFrom<serde_json::Value> for IipDatum {
     PartialOrd,
     serde::Deserialize,
     serde::Serialize,
+    derive_new::new,
     derive_more::Deref,
     derive_more::DerefMut,
-    derive_more::From,
+    derive_more::AsRef,
+    derive_more::AsMut,
 )]
-#[from(Vec<IipDatum>)]
-pub struct IipData(Vec<IipDatum>);
+pub struct IipData {
+    #[deref]
+    #[deref_mut]
+    data: Vec<IipDatum>,
+    notes: Option<Notes>,
+}
 
 impl IipData {
     #[tracing::instrument]
@@ -376,6 +382,11 @@ impl IipData {
             .map(|v| set.insert(v.frequency().to_owned()))
             .for_each(drop);
         set
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn notes(&self) -> Option<std::collections::BTreeSet<Note>> {
+        self.notes.as_ref().map(|v| v.set())
     }
 
     #[tracing::instrument]
@@ -487,8 +498,9 @@ impl TryFrom<&serde_json::Value> for IipData {
                         }
                     }
                 }
+                let notes = Notes::try_from(value).ok();
                 tracing::trace!("Data found: {} records.", data.len());
-                Ok(Self(data))
+                Ok(Self::new(data, notes))
             }
             _ => {
                 let error = NotArray::new(line!(), file!().to_string());

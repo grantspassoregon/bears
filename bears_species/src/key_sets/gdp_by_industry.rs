@@ -1,8 +1,8 @@
 use crate::{
     BeaErr, BeaResponse, Currency, Data, Dataset, DatasetMissing, Frequencies, Frequency, Integer,
-    IoError, KeyMissing, Measure, Naics, NotArray, NotObject, ParameterName, ParameterValueTable,
-    Scale, SerdeJson, Set, VariantMissing, Year, data::result_to_data, map_to_float, map_to_int,
-    map_to_string, parse_year, roman_numeral_quarter,
+    IoError, KeyMissing, Measure, Naics, NotArray, NotObject, Note, Notes, ParameterName,
+    ParameterValueTable, Scale, SerdeJson, Set, VariantMissing, Year, data::result_to_data,
+    map_to_float, map_to_int, map_to_string, parse_year, roman_numeral_quarter,
 };
 use strum::IntoEnumIterator;
 
@@ -401,14 +401,18 @@ impl GdpDatum {
     PartialOrd,
     serde::Deserialize,
     serde::Serialize,
+    derive_new::new,
     derive_more::Deref,
     derive_more::DerefMut,
-    derive_more::From,
     derive_more::AsRef,
     derive_more::AsMut,
 )]
-#[from(Vec<GdpDatum>)]
-pub struct GdpData(Vec<GdpDatum>);
+pub struct GdpData {
+    #[deref]
+    #[deref_mut]
+    data: Vec<GdpDatum>,
+    notes: Notes,
+}
 
 impl GdpData {
     #[tracing::instrument(skip_all)]
@@ -439,6 +443,11 @@ impl GdpData {
             })
             .for_each(drop);
         params
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn notes(&self) -> std::collections::BTreeSet<Note> {
+        self.notes.set()
     }
 
     #[tracing::instrument(skip_all)]
@@ -530,7 +539,8 @@ impl TryFrom<&serde_json::Value> for GdpData {
                     }
                 }
                 tracing::trace!("Data found: {} records.", data.len());
-                Ok(Self(data))
+                let notes = Notes::try_from(value)?;
+                Ok(Self::new(data, notes))
             }
             _ => {
                 let error = NotArray::new(line!(), file!().to_string());

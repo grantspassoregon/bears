@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use crate::{
     BeaErr, BeaResponse, Currency, Data, Dataset, DatasetMissing, DeriveFromStr, FixedAssetTable,
-    IoError, Measure, Metric, NipaRange, NipaRanges, NotArray, NotObject, ParameterName,
-    ParameterValueTable, ParameterValueTableVariant, Scale, SerdeJson, Set, VariantMissing,
-    date_by_period, map_to_float, map_to_int, map_to_string, result_to_data,
+    IoError, Measure, Metric, NipaRange, NipaRanges, NotArray, NotObject, Note, Notes,
+    ParameterName, ParameterValueTable, ParameterValueTableVariant, Scale, SerdeJson, Set,
+    VariantMissing, date_by_period, map_to_float, map_to_int, map_to_string, result_to_data,
 };
 
 #[derive(
@@ -218,13 +218,17 @@ impl TryFrom<serde_json::Value> for FixedAssetDatum {
     serde::Serialize,
     derive_more::Deref,
     derive_more::DerefMut,
-    derive_more::From,
+    derive_new::new,
 )]
-#[from(Vec<FixedAssetDatum>)]
-pub struct FixedAssetData(Vec<FixedAssetDatum>);
+pub struct FixedAssetData {
+    #[deref]
+    #[deref_mut]
+    data: Vec<FixedAssetDatum>,
+    notes: Notes,
+}
 
 impl FixedAssetData {
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn cl_units(&self) -> std::collections::BTreeSet<Measure> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -233,7 +237,7 @@ impl FixedAssetData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn line_descriptions(&self) -> std::collections::BTreeSet<String> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -242,7 +246,7 @@ impl FixedAssetData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn line_numbers(&self) -> std::collections::BTreeSet<i64> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -251,7 +255,7 @@ impl FixedAssetData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn metric_names(&self) -> std::collections::BTreeSet<Metric> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -260,7 +264,12 @@ impl FixedAssetData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
+    pub fn notes(&self) -> std::collections::BTreeSet<Note> {
+        self.notes.set()
+    }
+
+    #[tracing::instrument(skip_all)]
     pub fn series_codes(&self) -> std::collections::BTreeSet<String> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -269,7 +278,7 @@ impl FixedAssetData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn table_names(&self) -> std::collections::BTreeSet<FixedAssetTable> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -278,7 +287,7 @@ impl FixedAssetData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn time_periods(&self) -> std::collections::BTreeSet<jiff::civil::Date> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -287,7 +296,7 @@ impl FixedAssetData {
         set
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub fn unit_mults(&self) -> std::collections::BTreeSet<Scale> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
@@ -358,7 +367,8 @@ impl TryFrom<&serde_json::Value> for FixedAssetData {
                     }
                 }
                 tracing::trace!("Data found: {} records.", data.len());
-                Ok(Self(data))
+                let notes = Notes::try_from(value)?;
+                Ok(Self::new(data, notes))
             }
             _ => {
                 let error = NotArray::new(line!(), file!().to_string());
