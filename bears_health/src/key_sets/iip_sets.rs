@@ -1,7 +1,8 @@
 use crate::{difference, params};
 use bears_ecology::initial_load;
 use bears_species::{
-    BeaErr, Component, Data, Dataset, Iip, Investment, ItaFrequency, Measure, ParameterName, Scale,
+    BeaErr, Component, Data, Dataset, Iip, Investment, ItaFrequency, Measure, Note, ParameterName,
+    Scale,
 };
 use std::collections::BTreeSet;
 use strum::IntoEnumIterator;
@@ -27,6 +28,7 @@ pub struct IipKeys {
     cl_units: BTreeSet<Measure>,
     components: BTreeSet<Component>,
     frequencies: BTreeSet<ItaFrequency>,
+    notes: Option<BTreeSet<Note>>,
     time_periods: BTreeSet<jiff::civil::Date>,
     time_series_codes: std::collections::BTreeMap<String, String>,
     investments: BTreeSet<Investment>,
@@ -64,22 +66,26 @@ impl IipKeys {
     #[tracing::instrument(skip_all)]
     pub async fn observed() -> Result<Self, BeaErr> {
         let dataset = Dataset::Iip;
-        let iot = initial_load(dataset, None).await?;
-        tracing::info!("{} datasets loaded.", iot.len());
+        let obs = initial_load(dataset, None).await?;
+        tracing::info!("{} datasets loaded.", obs.len());
         let mut cl_units = BTreeSet::new();
         let mut components = BTreeSet::new();
         let mut frequencies = BTreeSet::new();
+        let mut notes = BTreeSet::new();
         let mut time_periods = BTreeSet::new();
         let mut time_series_codes = std::collections::BTreeMap::new();
         let mut investments = BTreeSet::new();
         let mut unit_multipliers = BTreeSet::new();
         let mut years = BTreeSet::new();
-        iot.iter()
+        obs.iter()
             .map(|v| {
                 if let Data::Iip(data) = v {
                     cl_units.append(&mut data.cl_units());
                     components.append(&mut data.components());
                     frequencies.append(&mut data.frequencies());
+                    if let Some(value) = &mut data.notes() {
+                        notes.append(value);
+                    }
                     time_periods.append(&mut data.time_periods());
                     time_series_codes.append(&mut data.time_series_codes());
                     investments.append(&mut data.investments());
@@ -88,11 +94,13 @@ impl IipKeys {
                 }
             })
             .for_each(drop);
+        let notes = if notes.is_empty() { None } else { Some(notes) };
 
         Ok(Self::new(
             cl_units,
             components,
             frequencies,
+            notes,
             time_periods,
             time_series_codes,
             investments,
@@ -164,6 +172,8 @@ impl IipKeys {
         params(obs.components(), path, dataset, name, kind)?;
         let name = ParameterName::Frequency;
         params(obs.frequencies(), path, dataset, name, kind)?;
+        let name = ParameterName::Notes;
+        params(obs.notes(), path, dataset, name, kind)?;
         let name = ParameterName::TimePeriod;
         params(obs.time_periods(), path, dataset, name, kind)?;
         let name = ParameterName::TimeSeriesCode;

@@ -1,7 +1,7 @@
 use crate::{difference, params};
 use bears_ecology::initial_load;
 use bears_species::{
-    BeaErr, Data, Dataset, FixedAssetTable, FixedAssets, Measure, Metric, NipaRanges,
+    BeaErr, Data, Dataset, FixedAssetTable, FixedAssets, Measure, Metric, NipaRanges, Note,
     ParameterName, Scale,
 };
 use strum::IntoEnumIterator;
@@ -27,6 +27,7 @@ pub struct FixedAssetKeys {
     line_descriptions: std::collections::BTreeSet<String>,
     line_numbers: std::collections::BTreeSet<i64>,
     metric_names: std::collections::BTreeSet<Metric>,
+    notes: std::collections::BTreeSet<Note>,
     series_codes: std::collections::BTreeSet<String>,
     table_names: std::collections::BTreeSet<FixedAssetTable>,
     time_periods: std::collections::BTreeSet<jiff::civil::Date>,
@@ -47,6 +48,7 @@ impl FixedAssetKeys {
         let mut line_descriptions = std::collections::BTreeSet::new();
         let mut line_numbers = std::collections::BTreeSet::new();
         let mut metric_names = std::collections::BTreeSet::new();
+        let mut notes = std::collections::BTreeSet::new();
         let mut series_codes = std::collections::BTreeSet::new();
         let mut table_names = std::collections::BTreeSet::new();
         let mut time_periods = std::collections::BTreeSet::new();
@@ -58,6 +60,7 @@ impl FixedAssetKeys {
                     line_descriptions.append(&mut data.line_descriptions());
                     line_numbers.append(&mut data.line_numbers());
                     metric_names.append(&mut data.metric_names());
+                    notes.append(&mut data.notes());
                     series_codes.append(&mut data.series_codes());
                     table_names.append(&mut data.table_names());
                     time_periods.append(&mut data.time_periods());
@@ -71,6 +74,7 @@ impl FixedAssetKeys {
             line_descriptions,
             line_numbers,
             metric_names,
+            notes,
             series_codes,
             table_names,
             time_periods,
@@ -87,24 +91,26 @@ impl FixedAssetKeys {
     pub async fn print_observed<P: AsRef<std::path::Path>>(path: P) -> Result<(), BeaErr> {
         let path = path.as_ref();
         let dataset = Dataset::FixedAssets;
-        let codes = Self::observed().await?;
+        let obs = Self::observed().await?;
         let kind = "Observed";
         let name = ParameterName::ClUnit;
-        params(codes.cl_units(), path, dataset, name, kind)?;
+        params(obs.cl_units(), path, dataset, name, kind)?;
         let name = ParameterName::LineDescription;
-        params(codes.line_descriptions(), path, dataset, name, kind)?;
+        params(obs.line_descriptions(), path, dataset, name, kind)?;
         let name = ParameterName::LineNumber;
-        params(codes.line_numbers(), path, dataset, name, kind)?;
+        params(obs.line_numbers(), path, dataset, name, kind)?;
         let name = ParameterName::MetricName;
-        params(codes.metric_names(), path, dataset, name, kind)?;
+        params(obs.metric_names(), path, dataset, name, kind)?;
+        let name = ParameterName::Notes;
+        params(obs.notes(), path, dataset, name, kind)?;
         let name = ParameterName::SeriesCode;
-        params(codes.series_codes(), path, dataset, name, kind)?;
+        params(obs.series_codes(), path, dataset, name, kind)?;
         let name = ParameterName::TableName;
-        params(codes.table_names(), path, dataset, name, kind)?;
+        params(obs.table_names(), path, dataset, name, kind)?;
         let name = ParameterName::TimePeriod;
-        params(codes.time_periods(), path, dataset, name, kind)?;
+        params(obs.time_periods(), path, dataset, name, kind)?;
         let name = ParameterName::UnitMult;
-        params(codes.unit_mults(), path, dataset, name, kind)?;
+        params(obs.unit_mults(), path, dataset, name, kind)?;
         Ok(())
     }
 

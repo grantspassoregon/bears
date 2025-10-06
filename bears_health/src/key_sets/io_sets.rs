@@ -1,6 +1,8 @@
 use crate::{difference, params};
 use bears_ecology::initial_load;
-use bears_species::{BeaErr, Data, Dataset, InputOutput, InputOutputTable, Naics, ParameterName};
+use bears_species::{
+    BeaErr, Data, Dataset, InputOutput, InputOutputTable, Naics, Note, ParameterName,
+};
 use std::collections::BTreeSet;
 use strum::IntoEnumIterator;
 
@@ -23,6 +25,7 @@ use strum::IntoEnumIterator;
 pub struct IoKeys {
     column_codes: BTreeSet<Naics>,
     column_types: BTreeSet<String>,
+    notes: BTreeSet<Note>,
     row_codes: BTreeSet<Naics>,
     row_types: BTreeSet<String>,
     table_ids: BTreeSet<InputOutputTable>,
@@ -41,6 +44,7 @@ impl IoKeys {
         tracing::info!("{} datasets loaded.", iot.len());
         let mut row_codes = BTreeSet::new();
         let mut row_types = BTreeSet::new();
+        let mut notes = BTreeSet::new();
         let mut column_codes = BTreeSet::new();
         let mut column_types = BTreeSet::new();
         let mut table_ids = BTreeSet::new();
@@ -50,6 +54,9 @@ impl IoKeys {
                 if let Data::InputOutput(data) = v {
                     column_codes.append(&mut data.column_codes());
                     column_types.append(&mut data.column_types());
+                    if let Some(value) = &mut data.notes() {
+                        notes.append(value);
+                    }
                     row_codes.append(&mut data.row_codes());
                     row_types.append(&mut data.row_types());
                     table_ids.append(&mut data.table_ids());
@@ -61,6 +68,7 @@ impl IoKeys {
         let result = IoKeys::new(
             column_codes,
             column_types,
+            notes,
             row_codes,
             row_types,
             table_ids,
@@ -80,19 +88,21 @@ impl IoKeys {
         let path = path.as_ref();
         let dataset = Dataset::InputOutput;
         let kind = "Observed";
-        let codes = Self::observed().await?;
+        let obs = Self::observed().await?;
         let name = ParameterName::ColumnCode;
-        params(codes.column_codes(), path, dataset, name, kind)?;
+        params(obs.column_codes(), path, dataset, name, kind)?;
         let name = ParameterName::ColumnType;
-        params(codes.column_types(), path, dataset, name, kind)?;
+        params(obs.column_types(), path, dataset, name, kind)?;
+        let name = ParameterName::Notes;
+        params(obs.notes(), path, dataset, name, kind)?;
         let name = ParameterName::RowCode;
-        params(codes.row_codes(), path, dataset, name, kind)?;
+        params(obs.row_codes(), path, dataset, name, kind)?;
         let name = ParameterName::RowType;
-        params(codes.row_types(), path, dataset, name, kind)?;
+        params(obs.row_types(), path, dataset, name, kind)?;
         let name = ParameterName::TableID;
-        params(codes.table_ids(), path, dataset, name, kind)?;
+        params(obs.table_ids(), path, dataset, name, kind)?;
         let name = ParameterName::Year;
-        params(codes.years(), path, dataset, name, kind)?;
+        params(obs.years(), path, dataset, name, kind)?;
         Ok(())
     }
 
