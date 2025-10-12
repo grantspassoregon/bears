@@ -179,6 +179,7 @@ mod naics;
 mod parameter_values;
 mod parameters;
 mod queues;
+mod set;
 mod values;
 
 pub use aocs::check_aoc_sta;
@@ -204,6 +205,7 @@ pub use parameter_values::{
 };
 pub use parameters::{parameter_names, parameters_from_file, parameters_to_json};
 pub use queues::inspect_queues;
+pub use set::Set;
 pub use values::{
     api_error, requests_exceeded, values_filtered, values_filtered_subset, values_gdp_filtered,
     values_ugdp_filtered,
