@@ -1,10 +1,11 @@
 use std::str::FromStr;
 
 use crate::{
-    BeaErr, BeaResponse, Currency, Data, Dataset, DatasetMissing, DeriveFromStr, FixedAssetTable,
-    IoError, Measure, Metric, NipaRange, NipaRanges, NotArray, NotObject, Note, Notes,
-    ParameterName, ParameterValueTable, ParameterValueTableVariant, Scale, SerdeJson, Set,
-    VariantMissing, date_by_period, map_to_float, map_to_int, map_to_string, result_to_data,
+    BeaErr, BeaResponse, Currency, Data, Dataset, DatasetMissing, DeriveFromStr, FixedAssetLine,
+    FixedAssetTable, IoError, KeyMissing, Measure, Metric, NipaRange, NipaRanges, NotArray,
+    NotObject, Note, Notes, ParameterName, ParameterValueTable, ParameterValueTableVariant, Scale,
+    SerdeJson, Set, VariantMissing, date_by_period, map_to_float, map_to_int, map_to_string,
+    result_to_data,
 };
 
 #[derive(
@@ -146,15 +147,13 @@ impl Iterator for FixedAssetsTables<'_> {
     derive_getters::Getters,
 )]
 pub struct FixedAssetDatum {
-    cl_unit: Measure,
-    data_value: Currency,
-    line_description: String,
+    currency: Currency,
+    line: FixedAssetLine,
     line_number: i64,
     metric_name: Metric,
     series_code: String,
     table_name: FixedAssetTable,
     time_period: jiff::civil::Date,
-    unit_mult: Scale,
 }
 
 impl FixedAssetDatum {
@@ -163,8 +162,30 @@ impl FixedAssetDatum {
         let cl_unit = Measure::from_str(&cl_unit)
             .map_err(|e| DeriveFromStr::new(cl_unit, e, line!(), file!().to_owned()))?;
         let data_value = map_to_float("DataValue", m)?;
-        let line_description = map_to_string("LineDescription", m)?;
+        let description = map_to_string("LineDescription", m)?;
         let line_number = map_to_int("LineNumber", m)?;
+        // Infer line from line number
+        let line = match FixedAssetLine::from_description(&description) {
+            Some(line) => line,
+            None => {
+                let error = KeyMissing::new(description, line!(), file!().to_owned());
+                return Err(error.into());
+            }
+        };
+        tracing::trace!("Line number is {:?}", line.codes());
+        tracing::trace!("Line description is {}", line.description());
+        // Verify line number is in Line codes.
+        if !line.codes().contains(&line_number) {
+            let error = Mismatch::new(
+                format!("{:?}", line.codes()),
+                format!("{line_number}"),
+                line!(),
+                file!().to_owned(),
+            );
+            tracing::error!("Line description is {}", line.description());
+            tracing::error!("{error}");
+            return Err(error.into());
+        }
         let metric_name = map_to_string("METRIC_NAME", m)?;
         let metric_name = Metric::from_key(&metric_name)?;
         let series_code = map_to_string("SeriesCode", m)?;
@@ -175,17 +196,15 @@ impl FixedAssetDatum {
         let time_period = date_by_period(&time_period)?;
         let unit_mult = map_to_int("UNIT_MULT", m)?;
         let unit_mult = Scale::from_key(unit_mult)?;
-        let data_value = Currency::from((data_value, unit_mult, cl_unit));
+        let currency = Currency::from((data_value, unit_mult, cl_unit));
         Ok(Self {
-            cl_unit,
-            data_value,
-            line_description,
+            currency,
+            line,
             line_number,
             metric_name,
             series_code,
             table_name,
             time_period,
-            unit_mult,
         })
     }
 }
@@ -232,25 +251,37 @@ impl FixedAssetData {
     pub fn cl_units(&self) -> std::collections::BTreeSet<Measure> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
-            .map(|v| set.insert(v.cl_unit().to_owned()))
+            .map(|v| set.insert(*v.currency().unit()))
             .for_each(drop);
         set
     }
 
     #[tracing::instrument(skip_all)]
-    pub fn line_descriptions(&self) -> std::collections::BTreeSet<String> {
+    pub fn lines(&self) -> std::collections::BTreeSet<FixedAssetLine> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
-            .map(|v| set.insert(v.line_description().to_owned()))
+            .map(|v| set.insert(v.line().to_owned()))
             .for_each(drop);
         set
     }
 
     #[tracing::instrument(skip_all)]
-    pub fn line_numbers(&self) -> std::collections::BTreeSet<i64> {
-        let mut set = std::collections::BTreeSet::new();
+    pub fn descriptions(
+        &self,
+    ) -> std::collections::BTreeMap<String, std::collections::BTreeSet<i64>> {
+        let mut set: std::collections::BTreeMap<String, std::collections::BTreeSet<i64>> =
+            std::collections::BTreeMap::new();
         self.iter()
-            .map(|v| set.insert(v.line_number().to_owned()))
+            .map(|v| {
+                if let Some(existing) = set.get_mut(v.line().description()) {
+                    existing.insert(*v.line_number());
+                } else {
+                    let key = v.line().description().to_owned();
+                    let mut value = std::collections::BTreeSet::new();
+                    value.insert(*v.line_number());
+                    set.insert(key, value);
+                }
+            })
             .for_each(drop);
         set
     }
@@ -279,10 +310,102 @@ impl FixedAssetData {
     }
 
     #[tracing::instrument(skip_all)]
+    pub fn series(
+        &self,
+    ) -> std::collections::BTreeMap<String, std::collections::BTreeSet<FixedAssetTable>> {
+        let mut set =
+            std::collections::BTreeMap::<String, std::collections::BTreeSet<FixedAssetTable>>::new(
+            );
+        self.iter()
+            .map(|v| {
+                let target = v.series_code().to_owned();
+                let payload = v.table_name().to_owned();
+                if let Some(existing) = set.get_mut(&target) {
+                    existing.insert(payload);
+                } else {
+                    let mut tables = std::collections::BTreeSet::new();
+                    tables.insert(payload);
+                    set.insert(target, tables);
+                }
+            })
+            .for_each(drop);
+        set
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn series_inverse(
+        &self,
+    ) -> std::collections::BTreeMap<FixedAssetTable, std::collections::BTreeSet<String>> {
+        let mut set =
+            std::collections::BTreeMap::<FixedAssetTable, std::collections::BTreeSet<String>>::new(
+            );
+        self.iter()
+            .map(|v| {
+                let target = v.table_name().to_owned();
+                let payload = v.series_code().to_owned();
+                if let Some(existing) = set.get_mut(&target) {
+                    existing.insert(payload);
+                } else {
+                    let mut tables = std::collections::BTreeSet::new();
+                    tables.insert(payload);
+                    set.insert(target, tables);
+                }
+            })
+            // .map(|v| set.insert(v.series_code().to_owned(), v.table_name().to_owned()))
+            .for_each(drop);
+        set
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn series2(
+        &self,
+    ) -> std::collections::BTreeMap<String, std::collections::BTreeSet<String>> {
+        let mut set =
+            std::collections::BTreeMap::<String, std::collections::BTreeSet<String>>::new();
+        self.iter()
+            .map(|v| {
+                let target = v.series_code().to_owned();
+                let payload = format!("{}, {}", v.table_name(), v.line_number());
+                if let Some(existing) = set.get_mut(&target) {
+                    existing.insert(payload);
+                } else {
+                    let mut tables = std::collections::BTreeSet::new();
+                    tables.insert(payload);
+                    set.insert(target, tables);
+                }
+            })
+            .for_each(drop);
+        set
+    }
+
+    #[tracing::instrument(skip_all)]
     pub fn table_names(&self) -> std::collections::BTreeSet<FixedAssetTable> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
             .map(|v| set.insert(v.table_name().to_owned()))
+            .for_each(drop);
+        set
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn series_inverse2(
+        &self,
+    ) -> std::collections::BTreeMap<String, std::collections::BTreeSet<String>> {
+        let mut set =
+            std::collections::BTreeMap::<String, std::collections::BTreeSet<String>>::new();
+        self.iter()
+            .map(|v| {
+                let target = format!("{:?}, {:?}", v.table_name(), v.line());
+                let payload = v.series_code().to_owned();
+                if let Some(existing) = set.get_mut(&target) {
+                    existing.insert(payload);
+                } else {
+                    let mut tables = std::collections::BTreeSet::new();
+                    tables.insert(payload);
+                    set.insert(target, tables);
+                }
+            })
+            // .map(|v| set.insert(v.series_code().to_owned(), v.table_name().to_owned()))
             .for_each(drop);
         set
     }
@@ -300,7 +423,7 @@ impl FixedAssetData {
     pub fn unit_mults(&self) -> std::collections::BTreeSet<Scale> {
         let mut set = std::collections::BTreeSet::new();
         self.iter()
-            .map(|v| set.insert(*v.unit_mult()))
+            .map(|v| set.insert(*v.currency().scale()))
             .for_each(drop);
         set
     }
@@ -375,5 +498,20 @@ impl TryFrom<&serde_json::Value> for FixedAssetData {
                 Err(error.into())
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::Display, derive_new::new)]
+#[display("{left} does not match {right} at line {line} in {file}")]
+pub struct Mismatch {
+    left: String,
+    right: String,
+    line: u32,
+    file: String,
+}
+
+impl std::error::Error for Mismatch {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
     }
 }
