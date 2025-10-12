@@ -1,8 +1,8 @@
-use crate::{difference, params};
+use crate::{Set, difference, params};
 use bears_ecology::initial_load;
 use bears_species::{
-    BeaErr, Data, Dataset, FixedAssetTable, FixedAssets, Measure, Metric, NipaRanges, Note,
-    ParameterName, Scale,
+    BeaErr, Data, Dataset, FixedAssetLine, FixedAssetTable, FixedAssets, Measure, Metric,
+    NipaRanges, Note, ParameterName, Scale,
 };
 use strum::IntoEnumIterator;
 
@@ -24,11 +24,15 @@ use strum::IntoEnumIterator;
 /// Contains the value sets for each field in [`FixedAssetDatum`] contained in a [`FixedAssetData`].
 pub struct FixedAssetKeys {
     cl_units: std::collections::BTreeSet<Measure>,
-    line_descriptions: std::collections::BTreeSet<String>,
-    line_numbers: std::collections::BTreeSet<i64>,
+    lines: std::collections::BTreeSet<FixedAssetLine>,
+    line_descriptions: std::collections::BTreeMap<String, std::collections::BTreeSet<i64>>,
     metric_names: std::collections::BTreeSet<Metric>,
     notes: std::collections::BTreeSet<Note>,
     series_codes: std::collections::BTreeSet<String>,
+    series: std::collections::BTreeMap<String, std::collections::BTreeSet<FixedAssetTable>>,
+    series_inverse: std::collections::BTreeMap<FixedAssetTable, std::collections::BTreeSet<String>>,
+    series2: std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+    series_inverse2: std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
     table_names: std::collections::BTreeSet<FixedAssetTable>,
     time_periods: std::collections::BTreeSet<jiff::civil::Date>,
     unit_mults: std::collections::BTreeSet<Scale>,
@@ -45,11 +49,15 @@ impl FixedAssetKeys {
         let data = initial_load(dataset, None).await?;
         tracing::info!("{} datasets loaded.", data.len());
         let mut cl_units = std::collections::BTreeSet::new();
-        let mut line_descriptions = std::collections::BTreeSet::new();
-        let mut line_numbers = std::collections::BTreeSet::new();
+        let mut lines = std::collections::BTreeSet::new();
+        let mut line_descriptions = std::collections::BTreeMap::new();
         let mut metric_names = std::collections::BTreeSet::new();
         let mut notes = std::collections::BTreeSet::new();
         let mut series_codes = std::collections::BTreeSet::new();
+        let mut series = std::collections::BTreeMap::new();
+        let mut series_inverse = std::collections::BTreeMap::new();
+        let mut series2 = std::collections::BTreeMap::new();
+        let mut series_inverse2 = std::collections::BTreeMap::new();
         let mut table_names = std::collections::BTreeSet::new();
         let mut time_periods = std::collections::BTreeSet::new();
         let mut unit_mults = std::collections::BTreeSet::new();
@@ -57,11 +65,15 @@ impl FixedAssetKeys {
             .map(|v| {
                 if let Data::FixedAssets(data) = v {
                     cl_units.append(&mut data.cl_units());
-                    line_descriptions.append(&mut data.line_descriptions());
-                    line_numbers.append(&mut data.line_numbers());
+                    lines.append(&mut data.lines());
+                    line_descriptions.append(&mut data.descriptions());
                     metric_names.append(&mut data.metric_names());
                     notes.append(&mut data.notes());
                     series_codes.append(&mut data.series_codes());
+                    series.append(&mut data.series());
+                    series_inverse.append(&mut data.series_inverse());
+                    series2.append(&mut data.series2());
+                    series_inverse2.append(&mut data.series_inverse2());
                     table_names.append(&mut data.table_names());
                     time_periods.append(&mut data.time_periods());
                     unit_mults.append(&mut data.unit_mults());
@@ -71,16 +83,43 @@ impl FixedAssetKeys {
 
         let result = Self::new(
             cl_units,
+            lines,
             line_descriptions,
-            line_numbers,
             metric_names,
             notes,
             series_codes,
+            series,
+            series_inverse,
+            series2,
+            series_inverse2,
             table_names,
             time_periods,
             unit_mults,
         );
         Ok(result)
+    }
+
+    pub fn discriminate<T, U, V, W>(
+        target: &std::collections::BTreeMap<T, U>,
+        discriminant: &std::collections::BTreeMap<V, W>,
+    ) {
+        let targ = target.len();
+        tracing::info!("Target size: {targ}");
+        let disc = discriminant.len();
+        tracing::info!("Discriminant size: {disc}");
+        if disc < targ {
+            tracing::error!(
+                "Discriminants relation to target is one to many.  The set of discriminants is insufficient to identify the target."
+            );
+        } else if disc == targ {
+            tracing::info!(
+                "Discriminants relation to target is one to one.  The set of discriminants is ideal to identify the target."
+            );
+        } else if disc > targ {
+            tracing::info!(
+                "Discriminants relation to target is many to one.  The set of discriminants is sufficient to identify the target, but may be inefficient."
+            );
+        }
     }
 
     /// Attempts to load all files in the download [`History`], without respect to the load `History`.
@@ -95,16 +134,30 @@ impl FixedAssetKeys {
         let kind = "Observed";
         let name = ParameterName::ClUnit;
         params(obs.cl_units(), path, dataset, name, kind)?;
+        let name = ParameterName::LineNumber;
+        params(obs.lines(), path, dataset, name, kind)?;
         let name = ParameterName::LineDescription;
         params(obs.line_descriptions(), path, dataset, name, kind)?;
-        let name = ParameterName::LineNumber;
-        params(obs.line_numbers(), path, dataset, name, kind)?;
         let name = ParameterName::MetricName;
         params(obs.metric_names(), path, dataset, name, kind)?;
         let name = ParameterName::Notes;
         params(obs.notes(), path, dataset, name, kind)?;
+        let disc = obs.series_inverse2();
+        let hist = disc.histogram();
+        tracing::info!("| Count | Values |");
+        tracing::info!("==================");
+        for (count, set) in hist {
+            tracing::info!("| {count} | {} |", set.len())
+        }
+
+        if let Err(dupe) = disc.unique() {
+            tracing::error!("{dupe:?}");
+        } else {
+            tracing::info!("✅ Success: discriminant is disjoint for target.");
+        }
+
         let name = ParameterName::SeriesCode;
-        params(obs.series_codes(), path, dataset, name, kind)?;
+        params(disc, path, dataset, name, kind)?;
         let name = ParameterName::TableName;
         params(obs.table_names(), path, dataset, name, kind)?;
         let name = ParameterName::TimePeriod;
