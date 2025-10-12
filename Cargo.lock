@@ -182,6 +182,7 @@ dependencies = [
  "bears_species",
  "derive-getters",
  "derive-new",
+ "derive_more",
  "dotenvy",
  "jiff",
  "serde",

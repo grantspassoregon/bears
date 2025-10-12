@@ -19,6 +19,7 @@ bears_ecology = { workspace = true }
 bears_species = { workspace = true }
 derive-getters.workspace = true
 derive-new.workspace = true
+derive_more.workspace = true
 dotenvy.workspace = true
 jiff.workspace = true
 serde.workspace = true
