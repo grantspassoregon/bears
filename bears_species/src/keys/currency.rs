@@ -120,6 +120,7 @@ impl std::fmt::Display for ValueKind {
     PartialOrd,
     serde::Serialize,
     serde::Deserialize,
+    derive_getters::Getters,
     derive_more::Display,
     derive_more::Deref,
     derive_more::DerefMut,
