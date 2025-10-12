@@ -1,7 +1,7 @@
 use crate::{
-    AnnotationMissing, BadMetric, BadScale, BoolInvalid, IntegerInvalid, Nom, NotFloat, NotInteger,
-    NotParameterName, NotQuarter, OwnershipInvalid, ParseFloat, ParseInteger, RowCodeMissing,
-    UrlParseError, YearInvalid,
+    AnnotationMissing, BadMetric, BadScale, BoolInvalid, IntegerInvalid, Mismatch, Nom, NotFloat,
+    NotInteger, NotParameterName, NotQuarter, OwnershipInvalid, ParseFloat, ParseInteger,
+    RowCodeMissing, UrlParseError, YearInvalid,
 };
 
 #[derive(Debug, derive_more::Deref, derive_more::DerefMut)]
@@ -60,6 +60,7 @@ impl_bea_err!(
     IoError,
     Jiff,
     JsonParseError,
+    Mismatch,
     Nom,
     OwnershipInvalid,
     ParameterValueTableVariant,
@@ -126,6 +127,8 @@ pub enum BeaErrorKind {
     Jiff(Jiff),
     #[from(JsonParseError)]
     JsonParse(JsonParseError),
+    #[from(Mismatch)]
+    Mismatch(Mismatch),
     #[from(Nom)]
     Nom(Nom),
     #[from(OwnershipInvalid)]
@@ -202,6 +205,9 @@ impl std::fmt::Display for BeaErrorKind {
             Self::JsonParse(e) => {
                 write!(f, "{e}")
             }
+            Self::Mismatch(e) => {
+                write!(f, "{e}")
+            }
             Self::Nom(e) => {
                 write!(f, "{e}")
             }
@@ -263,6 +269,7 @@ impl std::error::Error for BeaErrorKind {
             Self::Io(e) => Some(e.source()),
             Self::Jiff(e) => e.source(),
             Self::JsonParse(e) => e.source(),
+            Self::Mismatch(e) => e.source(),
             Self::Nom(e) => e.source(),
             Self::OwnershipInvalid(e) => e.source(),
             Self::ParameterValueTableVariant(e) => e.source(),
