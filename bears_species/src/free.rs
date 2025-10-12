@@ -250,7 +250,7 @@ pub fn map_to_float(
         let float = json_float(value)?;
         Ok(float)
     } else {
-        tracing::warn!("Key missing: {key}");
+        tracing::debug!("Key missing: {key}");
         let error = KeyMissing::new(key.to_string(), line!(), file!().to_string());
         Err(error.into())
     }
