@@ -28,14 +28,14 @@ pub use free::{
 pub use key_sets::{
     AmneIter, ApiMetadata, FixedAssetData, FixedAssets, GdpByIndustry, GdpData, GdpDatum,
     GdpTables, Iip, IipData, IipInvestments, InputOutput, InputOutputData, InputOutputIterator,
-    IntlServSta, IntlServTrade, Ita, ItaData, ItaDatum, ItaIterator, Mne, MneIter, MneKind,
-    NiUnderlyingDetail, Nipa, NipaData, NipaIterator, Regional,
+    IntlServSta, IntlServTrade, Ita, ItaData, ItaDatum, ItaIterator, Mismatch, Mne, MneIter,
+    MneKind, NiUnderlyingDetail, Nipa, NipaData, NipaIterator, Regional,
 };
 pub use keys::{
     AffiliateKind, AffiliateLevel, Affiliation, AnnotatedInteger, Annotation, AnnotationMissing,
     AocSta, AreaOrCountry, BadMetric, BadScale, BoolInvalid, BoolOptions, Channel, Classification,
-    Component, Currency, DirectionKind, DirectionOfInvestment, FixedAssetTable, Footnotes,
-    Frequencies, Frequency, FrequencyOptions, IipIndustry, Indicator, InputOutputCode,
+    Component, Currency, DirectionKind, DirectionOfInvestment, FixedAssetLine, FixedAssetTable,
+    Footnotes, Frequencies, Frequency, FrequencyOptions, IipIndustry, Indicator, InputOutputCode,
     InputOutputTable, Integer, IntegerInvalid, IntegerKind, IntegerOptions, Investment,
     ItaFrequencies, ItaFrequency, Measure, Metric, Millions, MillionsOptions, Naics, NaicsCategory,
     NaicsIndustry, NaicsInputOutput, NaicsItem, NaicsItems, NaicsSector, NaicsSubcategory,
