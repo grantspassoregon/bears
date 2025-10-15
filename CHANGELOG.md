@@ -2,7 +2,66 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.13] - 2025-09-29
+## [0.1.14] - 2025-10-15
+
+### 🚀 Features
+
+- Download suite added to justfile.
+- `Metric` enum added to represent *MetricName* parameter keys in the `FixedAssets` dataset.
+- Methods *measure* and *scale* added to `InputOutputTable` to facilitate construction of the `Currency` type from raw data values.
+- `Currency`, `Scale` and `Measure` types added to represent interpretive context for raw data values.
+- `InputOutputDatum` now wraps raw data values in the `Currency` type.
+- `GdpDatum` now wraps raw data values in the `Currency` type.
+- `Iip` now converts unit multipliers to the `Scale` type and wraps raw data values in the `Currency` type.
+- `FixedAssetDatum` now converts the *MetricName* to the `Metric` enum, the *UNIT_MULT* to a `Scale` enum, and wraps raw data values in the `Currency` type.
+- `Note` and `Notes` types added to represent *Notes* objects in BEA response data.
+- `Notes` added to `Beaapi` type.
+- `FixedAssetKeys` updated to use the `Metric` and `Scale` types.
+- *quarters* field added to `GdpKeys`.
+- `IipKeys` updated to use the `Scale` enum.
+- Method *download_sync* added to `Queue` for better tracking of total size limits when the target size is unknown.
+- `Notes` added to `InputOutputData`.
+- `Notes` added to `FixedAssetData`, `GdpData` and `IipData` types.
+- Key sets testing suite updates to print observed notes for the `FixedAssets`, `GdpByIndustry`, `UnderlyingGdpByIndustry` and `Iip` datasets.
+- *next* command added to run the first request in a `Queue` for debugging use.
+- `FixedAssetLine` type added for line descriptions in the `FixedAssets` dataset.
+- Getters added for `ValueKind`.
+- The `FixedAssetDatum` type now uses the `FixedAssetLine` type for line descriptions.
+- `Mismatch` type added to error variants.
+- `Set` trait added with convenience methods for testing relations between values in BEA responses.
+- `FixedAssets` testing suite updated to use the `Set` trait.
+- `derive_more` dependency added to bears_health crate.
+- *series* method added to `FixedAssetTable`, capturing the SeriesCode parameter in the `FixedAssets` dataset.
+- Exploratory data analysis methods added to `FixedAssetData` for testing purposes.
+- *params* function generalized to accept any time implementing display, to produce filenames unrelated to the `ParameterName` type.
+- Testing suite for the `FixedAssets` dataset updated with exploratory analysis of relations between parameters.  Check added to verify the output of the *series* method matches the raw series code in the BEA responses.
+
+### 🐛 Bug Fixes
+
+- The *set* method now clones the referenced data to take ownership, which simplifies testing.
+
+### 🚜 Refactor
+
+- Direct constructions of `JsonParseErrorKind` replaced with macro impls.
+- Direct constructions of `JsonParseErrorKind` replaced with macro impls.
+- Unit test triggers requests exceeded error if both datasets are requested.  Fix needed.
+- Direct constructions of `JsonParseErrorKind` replaced with macro impls.
+- `Queue` order is shuffled at random to decrease clustering of large datasets in the download order.
+- The `download` method now uses `download_sync` when a `History` is not present.
+
+### ⚙️ Miscellaneous Tasks
+
+- Version incremented to 0.1.14.
+- Visibility updates for new types.
+- Visibility for `FixedAssetLine` added at root level.
+- Plumbing added for `Mismatch` error variant.
+- Noise level reduced for missing data values in BEA responses.
+- Visibility added for `Set` at the root level.
+- Minor update to `tokio`, and patch updates to `reqwest` and `clap` dependencies.
+- Checking in updates to lockfile.
+- Lockfile updated to remove reference to `itertools` dependency.
+
+## [bears_species-v0.1.13] - 2025-09-29
 
 ### 🚀 Features
 
@@ -48,6 +107,7 @@ All notable changes to this project will be documented in this file.
 - Testing suite updated with methods for comparing key sets.
 - Obligation to call `dotenvy` moved outside the `trace_init` method.
 - The `table_id` field now accepts the i64 type instead of i32/
+- Omnibor artifacts removed from this release due to failure in the build pipe.
 
 ### 🐛 Bug Fixes
 
