@@ -2,11 +2,11 @@ use bears_species::{BeaErr, Dataset, IoError, ParameterName, write_json};
 use std::collections::BTreeSet;
 
 #[tracing::instrument(skip_all)]
-pub fn params<T: Ord + serde::Serialize, P: AsRef<std::path::Path>>(
+pub fn params<T: Ord + serde::Serialize, P: AsRef<std::path::Path>, N: std::fmt::Display>(
     data: &T,
     path: P,
     dataset: Dataset,
-    name: ParameterName,
+    name: N,
     kind: &str,
 ) -> Result<(), BeaErr> {
     let path = path.as_ref();
