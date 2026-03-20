@@ -137,8 +137,12 @@ pub enum NaicsSubsector {
     PublishingIndustriesExceptInternet,
     /// Motion Picture and Sound Recording Industries
     MotionPictureAndSoundRecordingIndustries,
+    /// Publishing Industries
+    PublishingIndustries,
     /// Broadcasting (except Internet)
     BroadcastingExceptInternet,
+    /// Broadcasting and Content Providers
+    BroadcastingAndContentProviders,
     /// Telecommunications
     Telecommunications,
     /// Computing Infrastructure Providers, Data Processing, Web Hosting, and Related Services
@@ -316,7 +320,9 @@ impl NaicsSubsector {
             Self::MotionPictureAndSoundRecordingIndustries => {
                 "Motion Picture and Sound Recording Industries"
             }
+            Self::PublishingIndustries => "Publishing Industries",
             Self::BroadcastingExceptInternet => "Broadcasting (except Internet)",
+            Self::BroadcastingAndContentProviders => "Broadcasting and Content Providers",
             Self::Telecommunications => "Telecommunications",
             Self::ComputingInfrastructureProvidersDataProcessingWebHostingAndRelatedServices => {
                 "Computing Infrastructure Providers, Data Processing, Web Hosting, and Related Services"
@@ -460,7 +466,9 @@ impl NaicsSubsector {
             Self::WarehousingAndStorage => 493,
             Self::PublishingIndustriesExceptInternet => 511,
             Self::MotionPictureAndSoundRecordingIndustries => 512,
+            Self::PublishingIndustries => 513,
             Self::BroadcastingExceptInternet => 515,
+            Self::BroadcastingAndContentProviders => 516,
             Self::Telecommunications => 517,
             Self::ComputingInfrastructureProvidersDataProcessingWebHostingAndRelatedServices => 518,
             Self::OtherInformationServices => 519,
@@ -575,7 +583,9 @@ impl NaicsSubsector {
             493 => Self::WarehousingAndStorage,
             511 => Self::PublishingIndustriesExceptInternet,
             512 => Self::MotionPictureAndSoundRecordingIndustries,
+            513 => Self::PublishingIndustries,
             515 => Self::BroadcastingExceptInternet,
+            516 => Self::BroadcastingAndContentProviders,
             517 => Self::Telecommunications,
             518 => Self::ComputingInfrastructureProvidersDataProcessingWebHostingAndRelatedServices,
             519 => Self::OtherInformationServices,
