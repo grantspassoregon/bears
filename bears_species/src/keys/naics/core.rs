@@ -117,6 +117,80 @@ impl Naics {
             .for_each(drop);
         variants
     }
+
+    /// Converts the given NAICS to its `NaicsSector` value.
+    pub fn sector(&self) -> Option<NaicsSector> {
+        // Sector is the shortest code, so all codes include a sector.
+        let code = self.code().to_string();
+        let key = code.chars().take(2).collect::<String>();
+        NaicsSector::from_code(&key)
+    }
+
+    /// Converts a NAICS value to its `NaicsSubsector` value. Returns None if no subsector is
+    /// associated with the code, or if the type is the Sector variant, which does not contain
+    /// subsector codes.
+    pub fn subsector(&self) -> Option<NaicsSubsector> {
+        match self {
+            Self::Sector(_) => None,
+            Self::Subsector(ss) => Some(ss.to_owned()),
+            _ => {
+                let code = self.code().to_string();
+                let key = code.chars().take(3).collect::<String>();
+                NaicsSubsector::from_code(&key)
+            }
+        }
+    }
+
+    /// Converts a NAICS value to its `NaicsCategory` value. Returns None if no category is
+    /// associated with the code, or if the type is the Sector or Subsector variants, which do not contain
+    /// category codes.
+    pub fn category(&self) -> Option<NaicsCategory> {
+        match self {
+            Self::Sector(_) => None,
+            Self::Subsector(_) => None,
+            Self::Category(c) => Some(c.to_owned()),
+            _ => {
+                let code = self.code().to_string();
+                let key = code.chars().take(4).collect::<String>();
+                NaicsCategory::from_code(&key)
+            }
+        }
+    }
+
+    /// Converts a NAICS value to its `NaicsSubcategory` value. Returns None if no subcategory is
+    /// associated with the code, or if the type is the Sector, Subsector or Category variants, which do not contain
+    /// subcategory codes.
+    pub fn subcategory(&self) -> Option<NaicsSubcategory> {
+        match self {
+            Self::Sector(_) => None,
+            Self::Subsector(_) => None,
+            Self::Category(_) => None,
+            Self::Subcategory(sc) => Some(sc.to_owned()),
+            _ => {
+                let code = self.code().to_string();
+                let key = code.chars().take(5).collect::<String>();
+                NaicsSubcategory::from_code(&key)
+            }
+        }
+    }
+
+    /// Converts a NAICS value to its `NaicsIndustry` value. Returns None if no indsutry is
+    /// associated with the code, or if the type is the Sector, Subsector, Category or Subcategory variants, which do not contain
+    /// industry codes.
+    pub fn industry(&self) -> Option<NaicsIndustry> {
+        match self {
+            Self::Sector(_) => None,
+            Self::Subsector(_) => None,
+            Self::Category(_) => None,
+            Self::Subcategory(_) => None,
+            Self::Industry(i) => Some(i.to_owned()),
+            _ => {
+                let code = self.code().to_string();
+                let key = code.chars().take(6).collect::<String>();
+                NaicsIndustry::from_code(&key)
+            }
+        }
+    }
 }
 
 impl std::str::FromStr for Naics {
